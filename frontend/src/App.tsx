@@ -1,0 +1,412 @@
+import { FormEvent, useState } from 'react';
+import { api, Negocio, Rol, Sesion } from './api';
+import Comprador from './Comprador';
+import CrearProducto from './CrearProducto';
+
+type Vista = 'ingreso' | 'registro';
+const negocioInicial = { razonSocial: '', nombreComercial: '', identificacionFiscal: '', telefono: '', direccion: '' };
+const claveSesion = 'bulkmarket-sesion';
+
+function App() {
+  const [sesion, setSesion] = useState<Sesion | null>(() => { const valor = localStorage.getItem(claveSesion); return valor ? JSON.parse(valor) : null; });
+  const [vista, setVista] = useState<Vista>('ingreso');
+
+  const guardarSesion = (nuevaSesion: Sesion) => { localStorage.setItem(claveSesion, JSON.stringify(nuevaSesion)); setSesion(nuevaSesion); };
+  const cerrarSesion = () => { localStorage.removeItem(claveSesion); setSesion(null); };
+
+  if (sesion) return <Panel sesion={sesion} guardarSesion={guardarSesion} cerrarSesion={cerrarSesion} />;
+
+  return <main className="auth-layout">
+            <section className="hero">
+                <h1>Comprá mejor.
+                    <br />
+                    <em>Vendé más.</em>
+                </h1>
+                <p>La plataforma que conecta comercios y marcas independientes para hacer negocios.</p>
+            </section>
+            <section className="auth-card">
+                <Marca />
+                <div className="tabs">
+                    <button className={vista === 'ingreso' ? 'active' : ''} onClick={() => setVista('ingreso')}>Ingresar</button>
+                    <button className={vista === 'registro' ? 'active' : ''} onClick={() => setVista('registro')}>Crear cuenta</button>
+                </div>{vista === 'ingreso' ? 
+                <Ingreso alIngresar={guardarSesion} alRegistrarse={() => setVista('registro')} /> : 
+                <Registro alRegistrarse={guardarSesion} />}
+            </section>
+        </main>;
+}
+
+function Marca() { return <div className="brand"><span className="brand-mark">B</span><span>bulk<span>market</span></span></div>; }
+
+function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) => void; alRegistrarse: () => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  async function enviar(evento: FormEvent) {
+    evento.preventDefault();
+    setError('');
+    setCargando(true);
+    try {
+      await alIngresar(await api.iniciarSesion({ email, password }));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  return (
+    <form onSubmit={enviar}>
+      <h2>Bienvenido de nuevo</h2>
+      <p className="muted">Ingresá para gestionar tu negocio.</p>
+      <Campo
+        etiqueta="Correo electrónico"
+        tipo="email"
+        valor={email}
+        alCambiar={setEmail}
+        requerido
+      />
+      <Campo
+        etiqueta="Contraseña"
+        tipo="password"
+        valor={password}
+        alCambiar={setPassword}
+        requerido
+      />
+      <ErrorFormulario error={error} />
+      <button
+        className="primary"
+        disabled={cargando}
+      >
+        {cargando ? 'Ingresando…' : 'Ingresar a mi cuenta'}
+      </button>
+      <p className="footnote">
+        ¿Todavía no tenés una cuenta?{' '}
+        <button type="button" className="link" onClick={alRegistrarse}>
+          Creala ahora
+        </button>
+      </p>
+    </form>
+  );
+}
+
+function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }) {
+  const [rol, setRol] = useState<Rol>('COMPRADOR');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [negocio, setNegocio] = useState(negocioInicial);
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+
+  const actualizarCampo = (campo: keyof typeof negocio) => (valor: string) =>
+    setNegocio((actual) => ({ ...actual, [campo]: valor }));
+
+  async function enviar(evento: FormEvent) {
+    evento.preventDefault();
+    setError('');
+    setCargando(true);
+    try {
+      await alRegistrarse(await api.registrar({ email, password, rol, negocio }));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo crear la cuenta.');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  return (
+    <form className={`registro ${rol.toLowerCase()}`} onSubmit={enviar}>
+      <h2>Creá tu cuenta</h2>
+      <p className="muted">
+        Completá los datos de tu negocio para operar en BulkMarket.
+      </p>
+      <div className="role-selector">
+        <button
+          type="button"
+          className={rol === 'COMPRADOR' ? 'chosen' : ''}
+          onClick={() => setRol('COMPRADOR')}
+        >
+          <b>Quiero comprar</b>
+          <small>Comercio minorista</small>
+        </button>
+        <button
+          type="button"
+          className={rol === 'VENDEDOR' ? 'chosen' : ''}
+          onClick={() => setRol('VENDEDOR')}
+        >
+          <b>Quiero vender</b>
+          <small>Marca o fabricante</small>
+        </button>
+      </div>
+      <div className="form-grid">
+        <Campo
+          etiqueta="Razón social"
+          valor={negocio.razonSocial}
+          alCambiar={actualizarCampo('razonSocial')}
+          requerido
+        />
+        <Campo
+          etiqueta="Nombre comercial"
+          valor={negocio.nombreComercial}
+          alCambiar={actualizarCampo('nombreComercial')}
+          requerido
+        />
+        <Campo
+          etiqueta="Identificación fiscal"
+          valor={negocio.identificacionFiscal}
+          alCambiar={actualizarCampo('identificacionFiscal')}
+          placeholder="XX-XXXXXXXX-X"
+          inputMode="numeric"
+          soloNumeros
+          exactDigitos={11}
+          formatear={formatearCuit}
+          maxLength={13}
+          pattern="\\d{2}-\\d{8}-\\d"
+          title="Ingresá los 11 dígitos del CUIT."
+          requerido
+        />
+        <Campo
+          etiqueta="Teléfono"
+          valor={negocio.telefono}
+          alCambiar={actualizarCampo('telefono')}
+          placeholder="XX XXXX-XXXX"
+          inputMode="numeric"
+          soloNumeros
+          maximoDigitos={10}
+          minDigitos={8}
+          formatear={formatearTelefono}
+          maxLength={12}
+          pattern="\\d{2} \\d{4}-\\d{4}"
+          title="Ingresá el código de área y ocho dígitos."
+          requerido
+        />
+        <div className="full">
+          <Campo
+            etiqueta="Dirección"
+            valor={negocio.direccion}
+            alCambiar={actualizarCampo('direccion')}
+            requerido
+          />
+        </div>
+      </div>
+      <Campo
+        etiqueta="Correo electrónico"
+        tipo="email"
+        valor={email}
+        alCambiar={setEmail}
+        requerido
+      />
+      <Campo
+        etiqueta="Contraseña"
+        tipo="password"
+        valor={password}
+        alCambiar={setPassword}
+        hint="Mínimo 8 caracteres"
+        requerido
+      />
+      <ErrorFormulario error={error} />
+      <button
+        className="primary"
+        disabled={cargando}
+      >
+        {cargando ? 'Creando cuenta…' : 'Crear cuenta gratis'}
+      </button>
+    </form>
+  );
+}
+
+type Seccion = 'explorar' | 'perfil';
+
+function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guardarSesion: (sesion: Sesion) => void; cerrarSesion: () => void }) {
+  const esComprador = sesion.cliente.rol === 'COMPRADOR';
+  const [seccion, setSeccion] = useState<Seccion>(esComprador ? 'explorar' : 'perfil');
+  const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
+    const { idNegocio, ...datos } = sesion.negocio;
+    return { ...datos, identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
+  });
+  const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
+
+  const actualizar = (campo: keyof typeof negocio) => (valor: string) =>
+    setNegocio((actual) => ({ ...actual, [campo]: valor }));
+
+  async function enviar(evento: FormEvent) {
+    evento.preventDefault();
+    setCargando(true);
+    setError('');
+    try {
+      const actualizado = await api.actualizarNegocio(negocio, sesion.accessToken);
+      guardarSesion({ ...sesion, negocio: actualizado });
+      setMensaje('Los datos del negocio se actualizaron correctamente.');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudieron guardar los cambios.');
+    } finally {
+      setCargando(false);
+    }
+  }
+
+  async function eliminarNegocio() {
+    if (!window.confirm(`¿Seguro que querés eliminar ${negocio.nombreComercial}? Esta acción eliminará el negocio y sus clientes asociados, y no se puede deshacer.`)) return;
+    setEliminando(true);
+    setError('');
+    try {
+      await api.eliminarNegocio(sesion.accessToken);
+      cerrarSesion();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'No se pudo eliminar el negocio.');
+    } finally {
+      setEliminando(false);
+    }
+  }
+
+  const nombreRol = sesion.cliente.rol === 'COMPRADOR' ? 'Comprador' : 'Vendedor';
+  const claseRol = sesion.cliente.rol.toLowerCase();
+
+  return (
+    <main className={`dashboard ${claseRol}`}>
+      <header className="navbar">
+        <Marca />
+        <nav className="navbar-tabs" aria-label="Navegación principal">
+          {esComprador && (
+            <button
+              type="button"
+              className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
+              aria-current={seccion === 'explorar' ? 'page' : undefined}
+              onClick={() => setSeccion('explorar')}
+            >
+              Explorar
+            </button>
+          )}
+          <button
+            type="button"
+            className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
+            aria-current={seccion === 'perfil' ? 'page' : undefined}
+            onClick={() => setSeccion('perfil')}
+          >
+            Perfil
+          </button>
+        </nav>
+        <div className="navbar-actions">
+          <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
+          <button className="logout" onClick={cerrarSesion}>Cerrar sesión</button>
+        </div>
+      </header>
+      {seccion === 'explorar' && <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} />}
+      {seccion === 'perfil' && <>
+      <section className="welcome">
+        <span className="eyebrow">PERFIL DE {nombreRol.toUpperCase()}</span>
+        <h1>Hola, {negocio.nombreComercial}</h1>
+        <p>Gestioná la información comercial y de contacto de tu negocio.</p>
+      </section>
+      <section className="business-panel" id="perfil">
+        <div>
+          <h2>Perfil del negocio</h2>
+          <p className="muted">Mantené actualizada la información comercial y de contacto.</p>
+        </div>
+        <form onSubmit={enviar}>
+          <div className="form-grid">
+            <Campo
+              etiqueta="Razón social"
+              valor={negocio.razonSocial}
+              alCambiar={actualizar('razonSocial')}
+              requerido
+            />
+            <Campo
+              etiqueta="Nombre comercial"
+              valor={negocio.nombreComercial}
+              alCambiar={actualizar('nombreComercial')}
+              requerido
+            />
+            <Campo
+              etiqueta="Identificación fiscal"
+              valor={negocio.identificacionFiscal}
+              alCambiar={actualizar('identificacionFiscal')}
+              placeholder="XX-XXXXXXXX-X"
+              inputMode="numeric"
+              soloNumeros
+              maximoDigitos={11}
+              formatear={formatearCuit}
+              maxLength={13}
+              pattern="\\d{2}-\\d{8}-\\d"
+              title="Ingresá los 11 dígitos del CUIT."
+              requerido
+            />
+            <Campo
+              etiqueta="Teléfono"
+              valor={negocio.telefono}
+              alCambiar={actualizar('telefono')}
+              placeholder="XX XXXX-XXXX"
+              inputMode="numeric"
+              soloNumeros
+              maximoDigitos={10}
+              formatear={formatearTelefono}
+              maxLength={12}
+              pattern="\\d{2} \\d{4}-\\d{4}"
+              title="Ingresá el código de área y ocho dígitos."
+              requerido
+            />
+            <div className="full">
+              <Campo
+                etiqueta="Dirección"
+                valor={negocio.direccion}
+                alCambiar={actualizar('direccion')}
+                requerido
+              />
+            </div>
+          </div>
+          <ErrorFormulario error={error} />
+          {mensaje && <p className="success">✓ {mensaje}</p>}
+          <button
+            className="primary"
+            disabled={cargando || eliminando}
+          >
+            {cargando ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+        </form>
+        <section className="danger-zone" aria-labelledby="delete-business-title">
+          <div>
+            <h2 id="delete-business-title">Eliminar negocio</h2>
+            <p>Esta acción elimina permanentemente el negocio y los clientes asociados.</p>
+          </div>
+          <button
+            type="button"
+            className="danger"
+            onClick={eliminarNegocio}
+            disabled={eliminando || cargando}
+          >
+            {eliminando ? 'Eliminando…' : 'Eliminar negocio'}
+          </button>
+        </section>
+      </section>
+      {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} />}
+      </>}
+    </main>
+  );
+}
+
+function soloDigitos(valor: string, maximoDigitos: number) { return valor.replace(/\D/g, '').slice(0, maximoDigitos); }
+function formatearCuit(valor: string) { const digitos = soloDigitos(valor, 11); if (digitos.length <= 2) return digitos; if (digitos.length <= 10) return `${digitos.slice(0, 2)}-${digitos.slice(2)}`; return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`; }
+function formatearTelefono(valor: string) { const digitos = soloDigitos(valor, 10); if (digitos.length <= 2) return digitos; if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`; return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)}-${digitos.slice(6)}`; }
+function Campo({ etiqueta, valor, alCambiar, tipo = 'text', hint, soloNumeros = false, maximoDigitos, formatear, minDigitos, exactDigitos, ...props }: { etiqueta: string; valor: string; alCambiar: (valor: string) => void; tipo?: string; hint?: string; soloNumeros?: boolean; maximoDigitos?: number; formatear?: (valor: string) => string; placeholder?: string; requerido?: boolean; inputMode?: 'numeric'; maxLength?: number; pattern?: string; title?: string; minDigitos?: number; exactDigitos?: number }) {
+  const valorVisible = formatear ? formatear(valor) : valor;
+  const patron = props.pattern?.split('\\\\').join('\\');
+  return <label className="field"><span>{etiqueta}</span><input type={tipo} value={valorVisible} onChange={(evento) => {
+    let input = evento.target.value;
+    if (soloNumeros) {
+      const digitsOnly = input.replace(/\D/g, '');
+      let max = maximoDigitos ?? Number.MAX_SAFE_INTEGER;
+      if (exactDigitos !== undefined) {
+        max = exactDigitos;
+      }
+      const limited = digitsOnly.slice(0, max);
+      alCambiar(soloDigitos(limited, max));
+    } else {
+      alCambiar(input);
+    }
+  }} {...props} pattern={patron} />{hint && <small>{hint}</small>}</label>; }
+function ErrorFormulario({ error }: { error: string }) { return error ? <p className="error" role="alert">{error}</p> : null; }
+export default App;
