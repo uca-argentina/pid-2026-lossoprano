@@ -217,7 +217,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   );
 }
 
-type Seccion = 'explorar' | 'perfil';
+type Seccion = 'explorar' | 'perfil' | 'productos';
 
 function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guardarSesion: (sesion: Sesion) => void; cerrarSesion: () => void }) {
   const esComprador = sesion.cliente.rol === 'COMPRADOR';
@@ -281,6 +281,16 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               Explorar
             </button>
           )}
+          {!esComprador && (
+            <button
+              type="button"
+              className={`nav-tab ${seccion === 'productos' ? 'active' : ''}`}
+              aria-current={seccion === 'productos' ? 'page' : undefined}
+              onClick={() => setSeccion('productos')}
+            >
+              Mis Productos
+            </button>
+          )}
           <button
             type="button"
             className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
@@ -296,94 +306,105 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
         </div>
       </header>
       {seccion === 'explorar' && <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} />}
-      {seccion === 'perfil' && <>
-      <section className="welcome">
-        <span className="eyebrow">PERFIL DE {nombreRol.toUpperCase()}</span>
-        <h1>Hola, {negocio.nombreComercial}</h1>
-        <p>Gestioná la información comercial y de contacto de tu negocio.</p>
-      </section>
-      <section className="business-panel" id="perfil">
-        <div>
-          <h2>Perfil del negocio</h2>
-          <p className="muted">Mantené actualizada la información comercial y de contacto.</p>
-        </div>
-        <form onSubmit={enviar}>
-          <div className="form-grid">
-            <Campo
-              etiqueta="Razón social"
-              valor={negocio.razonSocial}
-              alCambiar={actualizar('razonSocial')}
-              requerido
-            />
-            <Campo
-              etiqueta="Nombre comercial"
-              valor={negocio.nombreComercial}
-              alCambiar={actualizar('nombreComercial')}
-              requerido
-            />
-            <Campo
-              etiqueta="Identificación fiscal"
-              valor={negocio.identificacionFiscal}
-              alCambiar={actualizar('identificacionFiscal')}
-              placeholder="XX-XXXXXXXX-X"
-              inputMode="numeric"
-              soloNumeros
-              maximoDigitos={11}
-              formatear={formatearCuit}
-              maxLength={13}
-              pattern="\\d{2}-\\d{8}-\\d"
-              title="Ingresá los 11 dígitos del CUIT."
-              requerido
-            />
-            <Campo
-              etiqueta="Teléfono"
-              valor={negocio.telefono}
-              alCambiar={actualizar('telefono')}
-              placeholder="XX XXXX-XXXX"
-              inputMode="numeric"
-              soloNumeros
-              maximoDigitos={10}
-              formatear={formatearTelefono}
-              maxLength={12}
-              pattern="\\d{2} \\d{4}-\\d{4}"
-              title="Ingresá el código de área y ocho dígitos."
-              requerido
-            />
-            <div className="full">
-              <Campo
-                etiqueta="Dirección"
-                valor={negocio.direccion}
-                alCambiar={actualizar('direccion')}
-                requerido
-              />
+      {seccion === 'perfil' && (
+        <>
+          <section className="welcome">
+            <span className="eyebrow">PERFIL DE {nombreRol.toUpperCase()}</span>
+            <h1>Hola, {negocio.nombreComercial}</h1>
+            <p>Gestioná la información comercial y de contacto de tu negocio.</p>
+          </section>
+          <section className="business-panel" id="perfil">
+            <div>
+              <h2>Perfil del negocio</h2>
+              <p className="muted">Mantené actualizada la información comercial y de contacto.</p>
             </div>
-          </div>
-          <ErrorFormulario error={error} />
-          {mensaje && <p className="success">✓ {mensaje}</p>}
-          <button
-            className="primary"
-            disabled={cargando || eliminando}
-          >
-            {cargando ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-        </form>
-        <section className="danger-zone" aria-labelledby="delete-business-title">
-          <div>
-            <h2 id="delete-business-title">Eliminar negocio</h2>
-            <p>Esta acción elimina permanentemente el negocio y los clientes asociados.</p>
-          </div>
-          <button
-            type="button"
-            className="danger"
-            onClick={eliminarNegocio}
-            disabled={eliminando || cargando}
-          >
-            {eliminando ? 'Eliminando…' : 'Eliminar negocio'}
-          </button>
-        </section>
-      </section>
-      {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} />}
-      </>}
+            <form onSubmit={enviar}>
+              <div className="form-grid">
+                <Campo
+                  etiqueta="Razón social"
+                  valor={negocio.razonSocial}
+                  alCambiar={actualizar('razonSocial')}
+                  requerido
+                />
+                <Campo
+                  etiqueta="Nombre comercial"
+                  valor={negocio.nombreComercial}
+                  alCambiar={actualizar('nombreComercial')}
+                  requerido
+                />
+                <Campo
+                  etiqueta="Identificación fiscal"
+                  valor={negocio.identificacionFiscal}
+                  alCambiar={actualizar('identificacionFiscal')}
+                  placeholder="XX-XXXXXXXX-X"
+                  inputMode="numeric"
+                  soloNumeros
+                  maximoDigitos={11}
+                  formatear={formatearCuit}
+                  maxLength={13}
+                  pattern="\\d{2}-\\d{8}-\\d"
+                  title="Ingresá los 11 dígitos del CUIT."
+                  requerido
+                />
+                <Campo
+                  etiqueta="Teléfono"
+                  valor={negocio.telefono}
+                  alCambiar={actualizar('telefono')}
+                  placeholder="XX XXXX-XXXX"
+                  inputMode="numeric"
+                  soloNumeros
+                  maximoDigitos={10}
+                  formatear={formatearTelefono}
+                  maxLength={12}
+                  pattern="\\d{2} \\d{4}-\\d{4}"
+                  title="Ingresá el código de área y ocho dígitos."
+                  requerido
+                />
+                <div className="full">
+                  <Campo
+                    etiqueta="Dirección"
+                    valor={negocio.direccion}
+                    alCambiar={actualizar('direccion')}
+                    requerido
+                  />
+                </div>
+              </div>
+              <ErrorFormulario error={error} />
+              {mensaje && <p className="success">✓ {mensaje}</p>}
+              <button
+                className="primary"
+                disabled={cargando || eliminando}
+              >
+                {cargando ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+            </form>
+            <section className="danger-zone" aria-labelledby="delete-business-title">
+              <div>
+                <h2 id="delete-business-title">Eliminar negocio</h2>
+                <p>Esta acción elimina permanentemente el negocio y los clientes asociados.</p>
+              </div>
+              <button
+                type="button"
+                className="danger"
+                onClick={eliminarNegocio}
+                disabled={eliminando || cargando}
+              >
+                {eliminando ? 'Eliminando…' : 'Eliminar negocio'}
+              </button>
+            </section>
+          </section>
+        </>
+      )}
+      {seccion === 'productos' && (
+        <>
+          <section className="welcome">
+            <span className="eyebrow">MIS PRODUCTOS</span>
+            <h1>Gestioná tus productos</h1>
+            <p>Creá y administrá los productos de tu negocio.</p>
+          </section>
+          {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} />}
+        </>
+      )}
     </main>
   );
 }
