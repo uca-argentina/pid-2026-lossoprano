@@ -271,6 +271,14 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
       <header className="navbar">
         <Marca />
         <nav className="navbar-tabs" aria-label="Navegación principal">
+          <button
+            type="button"
+            className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
+            aria-current={seccion === 'perfil' ? 'page' : undefined}
+            onClick={() => setSeccion('perfil')}
+          >
+            Perfil
+          </button>
           {esComprador && (
             <button
               type="button"
@@ -291,14 +299,6 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               Mis Productos
             </button>
           )}
-          <button
-            type="button"
-            className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
-            aria-current={seccion === 'perfil' ? 'page' : undefined}
-            onClick={() => setSeccion('perfil')}
-          >
-            Perfil
-          </button>
         </nav>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
