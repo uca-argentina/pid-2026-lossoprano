@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
+import { formatCurrency } from './utils';
 
 type ItemCarrito = { idProducto: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
 type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[] } | null;
@@ -135,7 +136,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
               <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
               <b>{producto.nombre}</b>
               <span className="muted">{producto.categoria}</span>
-              <div className="producto-precio">${producto.precioBase}</div>
+              <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
               <small>Stock: {producto.stock}</small>
             </div>
           </article>
@@ -162,7 +163,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
                       {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
                       <div className="carrito-item-info">
                         <b>{item.nombre}</b>
-                        <span className="muted">${item.precioBase} c/u</span>
+                        <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
                       </div>
                       <input
                         type="number"
@@ -177,7 +178,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
                 </ul>
                 <div className="carrito-subtotal">
                   <span>Subtotal</span>
-                  <b>${subtotalCarrito.toFixed(2)}</b>
+                  <b>{formatCurrency(subtotalCarrito)}</b>
                 </div>
                 <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
               </>
@@ -204,7 +205,7 @@ function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto
           <h2>{producto.nombre}</h2>
           <span className="muted">{producto.categoria}</span>
           <p>{producto.descripcion}</p>
-          <div className="producto-precio">${producto.precioBase} <small>por unidad</small></div>
+          <div className="producto-precio">{formatCurrency(producto.precioBase)} <small>por unidad</small></div>
           <small>Stock disponible: {producto.stock}</small>
           <div className="detalle-agregar">
             <input

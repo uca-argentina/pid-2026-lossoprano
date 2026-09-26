@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
+import { formatCurrency } from './utils';
 
 export default function CrearProducto({ token }: { token: string }) {
   const [imagenes, setImagenes] = useState<File[]>([]);
@@ -116,7 +117,7 @@ export default function CrearProducto({ token }: { token: string }) {
                 <div className="producto-info">
                   <b>{producto.nombre}</b>
                   <span className="muted">{producto.categoria}</span>
-                  <div className="producto-precio">${producto.precioBase}</div>
+                  <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
                   <small>Stock: {producto.stock}</small>
                 </div>
               </article>
