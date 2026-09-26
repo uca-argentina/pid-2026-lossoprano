@@ -208,13 +208,65 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
 
 function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
   const [cantidad, setCantidad] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex(prev => (prev === 0 ? producto.imagenes.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex(prev => (prev === producto.imagenes.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="overlay" onClick={alCerrar}>
       <div className="detalle-panel" onClick={evento => evento.stopPropagation()}>
         <button type="button" className="link detalle-cerrar" onClick={alCerrar}>Cerrar ✕</button>
         <div className="detalle-imagenes">
-          {producto.imagenes.map(imagen => <img key={imagen} src={`${ASSET_URL}${imagen}`} alt={producto.nombre} />)}
+          {producto.imagenes.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="carousel-nav prev"
+                onClick={handlePrevImage}
+                disabled={producto.imagenes.length === 0}
+              >
+                ‹
+              </button>
+              <div className="carousel-slider">
+                <img
+                  key={`current-${currentImageIndex}`}
+                  src={`${ASSET_URL}${producto.imagenes[currentImageIndex]}`}
+                  alt={producto.nombre}
+                />
+              </div>
+              <button
+                type="button"
+                className="carousel-nav next"
+                onClick={handleNextImage}
+                disabled={producto.imagenes.length === 0}
+              >
+                ›
+              </button>
+              {producto.imagenes.length > 2 && (
+                <div className="carousel-dots">
+                  {producto.imagenes.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={currentImageIndex === index ? 'active' : ''}
+                      onClick={() => setCurrentImageIndex(index)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <img
+              src={`${ASSET_URL}${producto.imagenes[0]}`}
+              alt={producto.nombre}
+            />
+          )}
         </div>
         <div className="detalle-info">
           <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
