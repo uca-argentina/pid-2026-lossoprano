@@ -2,7 +2,12 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import { formatCurrency } from './utils';
 
-export default function CrearProducto({ token }: { token: string }) {
+interface CrearProductoProps {
+  token: string;
+  listPosition?: 'above' | 'below';
+}
+
+export default function CrearProducto({ token, listPosition = 'below' }: CrearProductoProps) {
   const [imagenes, setImagenes] = useState<File[]>([]);
   const [vistas, setVistas] = useState<string[]>([]);
   const [guardando, setGuardando] = useState(false);
@@ -62,10 +67,31 @@ export default function CrearProducto({ token }: { token: string }) {
     }
   }
 
+  const productosList = misProductos.length > 0 ? (
+    <div className="mis-productos">
+      <h2>Mis productos</h2>
+      <div className="producto-grilla">
+        {misProductos.map(producto => (
+          <article className="producto-card" key={producto.idProducto}>
+            {producto.imagenes[0] && <img src={`${ASSET_URL}${producto.imagenes[0]}`} alt={producto.nombre} />}
+            <div className="producto-info">
+              <b>{producto.nombre}</b>
+              <span className="muted">{producto.categoria}</span>
+              <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
+              <small>Stock: {producto.stock}</small>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <section className="business-panel" id="crear-producto">
-      <h2>Crear producto</h2>
+      {listPosition === 'above' && productosList}
+      {listPosition === 'above' && productosList && <hr className="product-separator" />}
       <form onSubmit={enviar}>
+        <h2>Crear producto</h2>
         <fieldset className="producto-campos" disabled={guardando}>
           <label className="field">
             <span>Nombre</span>
@@ -107,24 +133,7 @@ export default function CrearProducto({ token }: { token: string }) {
         {error && <p className="error" role="alert">{error}</p>}
         {mensaje && <p className="success" role="status">{mensaje}</p>}
       </form>
-      {misProductos.length > 0 && (
-        <div className="mis-productos">
-          <h2>Mis productos</h2>
-          <div className="producto-grilla">
-            {misProductos.map(producto => (
-              <article className="producto-card" key={producto.idProducto}>
-                {producto.imagenes[0] && <img src={`${ASSET_URL}${producto.imagenes[0]}`} alt={producto.nombre} />}
-                <div className="producto-info">
-                  <b>{producto.nombre}</b>
-                  <span className="muted">{producto.categoria}</span>
-                  <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
-                  <small>Stock: {producto.stock}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-      )}
+      {listPosition === 'below' && productosList}
     </section>
   );
 }

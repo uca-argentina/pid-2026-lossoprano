@@ -427,7 +427,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               <h1>Gestioná tus productos</h1>
               <p>Creá y administrá los productos de tu negocio.</p>
             </section>
-            {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} />}
+            {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} listPosition="above" />}
           </>
         </div>
       )}

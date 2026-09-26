@@ -11,7 +11,8 @@
 .field textarea:focus{outline:2px solid #8e55a4;outline-offset:2px}
 .producto-imagenes{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px}
 .producto-imagenes img{width:120px;height:120px;object-fit:contain;border:1px solid #ced7ce;border-radius:7px}
-.mis-productos{margin-top:40px;padding-top:30px;border-top:1px solid #e2e6dd}
+.mis-productos{margin:0;padding:0;margin-bottom:24px}
+.product-separator{border:0;border-top:1px solid #e2e6dd;margin:24px 0}
 
 .explorar{margin:40px auto;padding:0 max(5vw,28px) 60px;max-width:1100px}
 .explorar-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px}
