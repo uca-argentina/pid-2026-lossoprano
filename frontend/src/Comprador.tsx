@@ -73,6 +73,7 @@ function useCarrito(idCliente: number) {
 
 export default function PanelComprador({ token, idCliente }: { token: string; idCliente: number }) {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [todosLosProductos, setTodosLosProductos] = useState<Producto[]>([]);
   const [q, setQ] = useState('');
   const [categoria, setCategoria] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -86,7 +87,8 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
     setCargando(true);
     setError('');
     try {
-      setProductos(await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined }, token));
+      const filtered = await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined }, token);
+      setProductos(filtered);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudieron buscar productos.');
     } finally {
@@ -97,9 +99,23 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   useEffect(() => {
     buscar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [q, categoria]);
 
-  const categorias = useMemo(() => Array.from(new Set(productos.map(producto => producto.categoria))).sort(), [productos]);
+  // Load all products initially to build category list
+  useEffect(() => {
+    async function loadAllProducts() {
+      try {
+        const allProducts = await api.buscarProductos({ q: undefined, categoria: undefined }, token);
+        setTodosLosProductos(allProducts);
+        setProductos(allProducts);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'No se pudieron cargar productos.');
+      }
+    }
+    loadAllProducts();
+  }, [token]);
+
+  const categorias = useMemo(() => Array.from(new Set(todosLosProductos.map(producto => producto.categoria))).sort(), [todosLosProductos]);
   const totalItemsCarrito = carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
   const subtotalCarrito = carrito?.items.reduce((total, item) => total + item.cantidad * Number(item.precioBase), 0) ?? 0;
 
