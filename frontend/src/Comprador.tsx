@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
+import { formatCurrency } from './utils';
 
 type ItemCarrito = { idProducto: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
 type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[] } | null;
@@ -72,6 +73,7 @@ function useCarrito(idCliente: number) {
 
 export default function PanelComprador({ token, idCliente }: { token: string; idCliente: number }) {
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [todosLosProductos, setTodosLosProductos] = useState<Producto[]>([]);
   const [q, setQ] = useState('');
   const [categoria, setCategoria] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -85,7 +87,8 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
     setCargando(true);
     setError('');
     try {
-      setProductos(await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined }, token));
+      const filtered = await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined }, token);
+      setProductos(filtered);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudieron buscar productos.');
     } finally {
@@ -96,9 +99,23 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   useEffect(() => {
     buscar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [q, categoria]);
 
-  const categorias = useMemo(() => Array.from(new Set(productos.map(producto => producto.categoria))).sort(), [productos]);
+  // Load all products initially to build category list
+  useEffect(() => {
+    async function loadAllProducts() {
+      try {
+        const allProducts = await api.buscarProductos({ q: undefined, categoria: undefined }, token);
+        setTodosLosProductos(allProducts);
+        setProductos(allProducts);
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'No se pudieron cargar productos.');
+      }
+    }
+    loadAllProducts();
+  }, [token]);
+
+  const categorias = useMemo(() => Array.from(new Set(todosLosProductos.map(producto => producto.categoria))).sort(), [todosLosProductos]);
   const totalItemsCarrito = carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
   const subtotalCarrito = carrito?.items.reduce((total, item) => total + item.cantidad * Number(item.precioBase), 0) ?? 0;
 
@@ -135,7 +152,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
               <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
               <b>{producto.nombre}</b>
               <span className="muted">{producto.categoria}</span>
-              <div className="producto-precio">${producto.precioBase}</div>
+              <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
               <small>Stock: {producto.stock}</small>
             </div>
           </article>
@@ -162,7 +179,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
                       {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
                       <div className="carrito-item-info">
                         <b>{item.nombre}</b>
-                        <span className="muted">${item.precioBase} c/u</span>
+                        <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
                       </div>
                       <input
                         type="number"
@@ -177,7 +194,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
                 </ul>
                 <div className="carrito-subtotal">
                   <span>Subtotal</span>
-                  <b>${subtotalCarrito.toFixed(2)}</b>
+                  <b>{formatCurrency(subtotalCarrito)}</b>
                 </div>
                 <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
               </>
@@ -191,20 +208,72 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
 
 function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
   const [cantidad, setCantidad] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex(prev => (prev === 0 ? producto.imagenes.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex(prev => (prev === producto.imagenes.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <div className="overlay" onClick={alCerrar}>
       <div className="detalle-panel" onClick={evento => evento.stopPropagation()}>
         <button type="button" className="link detalle-cerrar" onClick={alCerrar}>Cerrar ✕</button>
         <div className="detalle-imagenes">
-          {producto.imagenes.map(imagen => <img key={imagen} src={`${ASSET_URL}${imagen}`} alt={producto.nombre} />)}
+          {producto.imagenes.length > 1 ? (
+            <>
+              <button
+                type="button"
+                className="carousel-nav prev"
+                onClick={handlePrevImage}
+                disabled={producto.imagenes.length === 0}
+              >
+                ‹
+              </button>
+              <div className="carousel-slider">
+                <img
+                  key={`current-${currentImageIndex}`}
+                  src={`${ASSET_URL}${producto.imagenes[currentImageIndex]}`}
+                  alt={producto.nombre}
+                />
+              </div>
+              <button
+                type="button"
+                className="carousel-nav next"
+                onClick={handleNextImage}
+                disabled={producto.imagenes.length === 0}
+              >
+                ›
+              </button>
+              {producto.imagenes.length > 2 && (
+                <div className="carousel-dots">
+                  {producto.imagenes.map((_, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={currentImageIndex === index ? 'active' : ''}
+                      onClick={() => setCurrentImageIndex(index)}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <img
+              src={`${ASSET_URL}${producto.imagenes[0]}`}
+              alt={producto.nombre}
+            />
+          )}
         </div>
         <div className="detalle-info">
           <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
           <h2>{producto.nombre}</h2>
           <span className="muted">{producto.categoria}</span>
           <p>{producto.descripcion}</p>
-          <div className="producto-precio">${producto.precioBase} <small>por unidad</small></div>
+          <div className="producto-precio">{formatCurrency(producto.precioBase)} <small>por unidad</small></div>
           <small>Stock disponible: {producto.stock}</small>
           <div className="detalle-agregar">
             <input
