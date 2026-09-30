@@ -1,210 +1,87 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { api, ASSET_URL, Producto } from './api';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { api, ASSET_URL, Negocio, Producto } from './api';
 import { formatCurrency } from './utils';
 
-type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
-type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[] } | null;
+import { limitarCantidad } from './useCarrito';
+import type useCarrito from './useCarrito';
 
-function limitarCantidad(cantidad: number, stock: number) {
-  if (!Number.isInteger(stock) || stock <= 0) return 0;
-  return Math.max(1, Math.min(stock, Number.isFinite(cantidad) ? Math.trunc(cantidad) : 1));
-}
-
-function useCarrito(idCliente: number, token: string, idNegocio: number) {
-  const clave = `bulkmarket-carrito-${idCliente}`;
-  const [avisoCarrito, setAvisoCarrito] = useState('');
-  const [carrito, setCarrito] = useState<Carrito>(() => {
-    const valor = localStorage.getItem(clave);
-    if (!valor) return null;
-    try {
-      const guardado: Carrito = JSON.parse(valor);
-      if (!guardado || guardado.idNegocio === idNegocio || !Array.isArray(guardado.items)) return null;
-      const items = guardado.items
-        .map(item => ({ ...item, cantidad: limitarCantidad(item.cantidad, item.stock) }))
-        .filter(item => item.cantidad > 0 && Number.isInteger(item.version) && item.version > 0);
-      return items.length ? { ...guardado, items } : null;
-    } catch {
-      return null;
-    }
-  });
-
-  useEffect(() => {
-    if (carrito) localStorage.setItem(clave, JSON.stringify(carrito));
-    else localStorage.removeItem(clave);
-  }, [carrito, clave]);
-
-  useEffect(() => {
-    if (!carrito) return;
-    let cancelado = false;
-    let validando = false;
-    const itemsConsultados = carrito.items;
-    async function validar() {
-      if (validando) return;
-      validando = true;
-      try {
-        const validos = new Set(await api.validarCarrito(itemsConsultados, token));
-        if (cancelado) return;
-        if (itemsConsultados.some(item => !validos.has(item.idProducto))) {
-          setAvisoCarrito('Se quitaron de tu carrito productos que el vendedor modificó o eliminó.');
-        }
-        setCarrito(actual => {
-          if (!actual) return actual;
-          const items = actual.items.filter(item => !itemsConsultados.some(consultado =>
-            consultado.idProducto === item.idProducto && consultado.version === item.version,
-          ) || validos.has(item.idProducto));
-          if (items.length === actual.items.length) return actual;
-          return items.length ? { ...actual, items } : null;
-        });
-      } catch {
-        // Conservamos el carrito si la API no está disponible y reintentamos.
-      } finally {
-        validando = false;
-      }
-    }
-    void validar();
-    const intervalo = window.setInterval(validar, 10000);
-    window.addEventListener('focus', validar);
-    return () => {
-      cancelado = true;
-      window.clearInterval(intervalo);
-      window.removeEventListener('focus', validar);
-    };
-  }, [carrito, token]);
-
-  function agregar(producto: Producto, cantidad: number) {
-    if (producto.idNegocio === idNegocio) {
-      setAvisoCarrito('No podés comprar productos de tu propio negocio.');
-      return;
-    }
-    const cantidadPermitida = limitarCantidad(cantidad, producto.stock);
-    if (cantidadPermitida === 0) return;
-    if (carrito && carrito.idNegocio !== producto.idNegocio) {
-      const confirmado = window.confirm(
-        `Tu carrito tiene productos de ${carrito.nombreNegocio}. Solo podés comprarle a un vendedor por vez.\n\n¿Vaciar el carrito y agregar este producto de ${producto.negocio?.nombreComercial ?? 'otra marca'}?`,
-      );
-      if (!confirmado) return;
-    }
-
-    setCarrito(actual => {
-      const base: Carrito =
-        actual && actual.idNegocio === producto.idNegocio
-          ? actual
-          : { idNegocio: producto.idNegocio, nombreNegocio: producto.negocio?.nombreComercial ?? 'Vendedor', items: [] };
-      const existente = base!.items.find(item => item.idProducto === producto.idProducto);
-      const items = existente
-        ? base!.items.map(item => (item.idProducto === producto.idProducto ? {
-            ...item,
-            nombre: producto.nombre,
-            precioBase: producto.precioBase,
-            imagen: producto.imagenes[0],
-            version: producto.version,
-            stock: producto.stock,
-            cantidad: limitarCantidad((item.version === producto.version ? item.cantidad : 0) + cantidadPermitida, producto.stock),
-          } : item))
-        : [
-            ...base!.items,
-            {
-              idProducto: producto.idProducto,
-              version: producto.version,
-              nombre: producto.nombre,
-              precioBase: producto.precioBase,
-              cantidad: cantidadPermitida,
-              stock: producto.stock,
-              imagen: producto.imagenes[0],
-            },
-          ];
-      return { ...base!, items };
-    });
-  }
-
-  function actualizarCantidad(idProducto: number, cantidad: number) {
-    setCarrito(actual => {
-      if (!actual) return actual;
-      const items = actual.items
-        .map(item => (item.idProducto === idProducto ? { ...item, cantidad: limitarCantidad(cantidad, item.stock) } : item))
-        .filter(item => item.cantidad > 0);
-      return items.length ? { ...actual, items } : null;
-    });
-  }
-
-  function quitar(idProducto: number) {
-    setCarrito(actual => {
-      if (!actual) return actual;
-      const items = actual.items.filter(item => item.idProducto !== idProducto);
-      return items.length > 0 ? { ...actual, items } : null;
-    });
-  }
-
-  function vaciar() {
-    setCarrito(null);
-  }
-
-  return { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar };
-}
-
-export default function PanelComprador({ token, idCliente, idNegocio }: { token: string; idCliente: number; idNegocio: number }) {
+export default function PanelComprador({ token, idNegocio, estadoCarrito, abrirCarrito }: {
+  token: string; idNegocio: number; estadoCarrito: ReturnType<typeof useCarrito>; abrirCarrito: () => void;
+}) {
   const [productos, setProductos] = useState<Producto[]>([]);
-  const [todosLosProductos, setTodosLosProductos] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<string[]>([]);
+  const [vendedores, setVendedores] = useState<Pick<Negocio, 'idNegocio' | 'nombreComercial'>[]>([]);
+  const [vendedor, setVendedor] = useState(() => estadoCarrito.carrito ? String(estadoCarrito.carrito.idNegocio) : '');
+  const busquedaActual = useRef(0);
   const [q, setQ] = useState('');
   const [categoria, setCategoria] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState<Producto | null>(null);
-  const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente, token, idNegocio);
+  const { avisoCarrito, agregar } = estadoCarrito;
+  const vendedorCarrito = estadoCarrito.carrito?.idNegocio;
+
+  useEffect(() => {
+    setVendedor(vendedorCarrito ? String(vendedorCarrito) : '');
+  }, [vendedorCarrito]);
 
   async function buscar(evento?: FormEvent) {
     evento?.preventDefault();
+    const solicitudActual = ++busquedaActual.current;
     setCargando(true);
     setError('');
     try {
-      const filtered = await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined }, token);
-      setProductos(filtered);
+      const filtered = await api.buscarProductos({ q: q || undefined, categoria: categoria || undefined, idNegocio: vendedor ? Number(vendedor) : undefined }, token);
+      if (solicitudActual === busquedaActual.current) setProductos(filtered);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'No se pudieron buscar productos.');
+      if (solicitudActual === busquedaActual.current) setError(error instanceof Error ? error.message : 'No se pudieron buscar productos.');
     } finally {
-      setCargando(false);
+      if (solicitudActual === busquedaActual.current) setCargando(false);
     }
   }
 
   useEffect(() => {
     buscar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, categoria]);
+    return () => { busquedaActual.current++; };
+  }, [q, categoria, vendedor, token]);
 
-  // Load all products initially to build category list
   useEffect(() => {
-    async function loadAllProducts() {
+    let activo = true;
+    async function cargarFiltros() {
       try {
-        const allProducts = await api.buscarProductos({ q: undefined, categoria: undefined }, token);
-        setTodosLosProductos(allProducts);
-        setProductos(allProducts);
+        const [categoriasDisponibles, vendedoresDisponibles] = await Promise.all([
+          api.listarCategorias(token), api.listarVendedores(token),
+        ]);
+        if (activo) {
+          setCategorias(categoriasDisponibles);
+          setVendedores(vendedoresDisponibles);
+        }
       } catch (error) {
-        setError(error instanceof Error ? error.message : 'No se pudieron cargar productos.');
+        if (activo) setError(error instanceof Error ? error.message : 'No se pudieron cargar los filtros.');
       }
     }
-    loadAllProducts();
+    void cargarFiltros();
+    return () => { activo = false; };
   }, [token]);
 
-  const categorias = useMemo(() => Array.from(new Set(todosLosProductos.map(producto => producto.categoria))).sort(), [todosLosProductos]);
-  const totalItemsCarrito = carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
-  const subtotalCarrito = carrito?.items.reduce((total, item) => total + item.cantidad * Number(item.precioBase), 0) ?? 0;
 
   return (
     <section className="explorar">
       <div className="explorar-header">
         <div>
           <h2>Explorar catálogo</h2>
-          <p className="muted">Buscá productos y marcas para armar tu pedido.</p>
+          <p className="muted">Buscá productos y filtrá por vendedor para armar tu pedido.</p>
         </div>
-        <button type="button" className="carrito-boton" onClick={() => setCarritoAbierto(true)}>
-          🛒 Carrito{totalItemsCarrito > 0 && <span className="carrito-badge">{totalItemsCarrito}</span>}
-        </button>
       </div>
 
       <form className="buscador" onSubmit={buscar}>
-        <input placeholder="Buscar productos o marcas…" value={q} onChange={evento => setQ(evento.target.value)} />
-        <select value={categoria} onChange={evento => setCategoria(evento.target.value)}>
+        <input aria-label="Buscar productos" placeholder="Buscar productos…" value={q} onChange={evento => setQ(evento.target.value)} />
+        <select aria-label="Filtrar por vendedor" value={vendedor} onChange={evento => setVendedor(evento.target.value)}>
+          <option value="">Todos los vendedores</option>
+          {vendedores.map(negocio => <option key={negocio.idNegocio} value={negocio.idNegocio}>{negocio.nombreComercial}</option>)}
+        </select>
+        <select aria-label="Filtrar por categoría" value={categoria} onChange={evento => setCategoria(evento.target.value)}>
           <option value="">Todas las categorías</option>
           {categorias.map(opcion => <option key={opcion} value={opcion}>{opcion}</option>)}
         </select>
@@ -226,62 +103,25 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
               <span className="muted">{producto.categoria}</span>
               <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
               <small>Stock: {producto.stock}</small>
+              {producto.cantidadMinimaCompra && <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>}
+              {Number(producto.negocio?.montoMinimoOrden) > 0 && <small>Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}</small>}
+              {producto.stock < (producto.cantidadMinimaCompra ?? 1) && <small>No disponible para comprar</small>}
             </div>
           </article>
         ))}
       </div>
 
-      {detalle && <DetalleProducto producto={detalle} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={(cantidad) => { agregar(detalle, cantidad); setDetalle(null); setCarritoAbierto(true); }} />}
+      {detalle && <DetalleProducto producto={detalle} mensaje={avisoCarrito} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={async (cantidad) => { if (await agregar(detalle, cantidad)) { setVendedor(String(detalle.idNegocio)); setDetalle(null); abrirCarrito(); } }} />}
 
-      {carritoAbierto && (
-        <div className="overlay" onClick={() => setCarritoAbierto(false)}>
-          <aside className="carrito-panel" onClick={evento => evento.stopPropagation()}>
-            <header>
-              <h2>Tu carrito</h2>
-              <button type="button" className="link" onClick={() => setCarritoAbierto(false)}>Cerrar</button>
-            </header>
-            {avisoCarrito && <p className="muted" role="status">{avisoCarrito}</p>}
-            {!carrito || carrito.items.length === 0 ? (
-              <p className="muted">Todavía no agregaste productos.</p>
-            ) : (
-              <>
-                <p className="muted">Vendedor: <b>{carrito.nombreNegocio}</b></p>
-                <ul className="carrito-items">
-                  {carrito.items.map(item => (
-                    <li key={item.idProducto}>
-                      {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
-                      <div className="carrito-item-info">
-                        <b>{item.nombre}</b>
-                        <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
-                      </div>
-                      <input
-                        type="number"
-                        min={1}
-                        step={1}
-                        max={item.stock}
-                        value={item.cantidad}
-                        onChange={evento => actualizarCantidad(item.idProducto, evento.target.valueAsNumber)}
-                      />
-                      <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="carrito-subtotal">
-                  <span>Subtotal</span>
-                  <b>{formatCurrency(subtotalCarrito)}</b>
-                </div>
-                <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
-              </>
-            )}
-          </aside>
-        </div>
-      )}
     </section>
   );
 }
 
-function DetalleProducto({ producto, esPropio, alCerrar, alAgregar }: { producto: Producto; esPropio: boolean; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
-  const [cantidad, setCantidad] = useState(1);
+function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: { producto: Producto; mensaje: string; esPropio: boolean; alCerrar: () => void; alAgregar: (cantidad: number) => void | Promise<void> }) {
+  const minimo = producto.cantidadMinimaCompra ?? 1;
+  const disponible = producto.stock >= minimo;
+  const [cantidad, setCantidad] = useState(minimo);
+  const [agregando, setAgregando] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const handlePrevImage = () => {
@@ -349,21 +189,28 @@ function DetalleProducto({ producto, esPropio, alCerrar, alAgregar }: { producto
           <p>{producto.descripcion}</p>
           <div className="producto-precio">{formatCurrency(producto.precioBase)} <small>por unidad</small></div>
           <small>Stock disponible: {producto.stock}</small>
+          {producto.cantidadMinimaCompra && <p className="muted">Cantidad mínima: {minimo} unidades.</p>}
+          {Number(producto.negocio?.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo a este vendedor: {formatCurrency(producto.negocio!.montoMinimoOrden!)}.</p>}
+          {!disponible && <p className="muted">No hay stock suficiente para comprar la cantidad mínima.</p>}
           <div className="detalle-agregar">
             <input
               type="number"
-              min={1}
+              min={minimo}
               step={1}
               max={producto.stock}
-              disabled={esPropio || producto.stock === 0}
+              disabled={esPropio || !disponible}
               value={cantidad}
-              onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock))}
+              onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock, minimo))}
             />
-            <button type="button" className="primary" disabled={esPropio || producto.stock === 0} onClick={() => alAgregar(cantidad)}>
-              Agregar al carrito
+            <button type="button" className="primary" disabled={agregando || esPropio || !disponible} onClick={async () => {
+              setAgregando(true);
+              try { await alAgregar(cantidad); } finally { setAgregando(false); }
+            }}>
+              {agregando ? 'Agregando…' : 'Agregar al carrito'}
             </button>
           </div>
           {esPropio && <p className="muted">Este producto pertenece a tu negocio. No podés agregarlo al carrito.</p>}
+          {mensaje && <p className="muted" role="status">{mensaje}</p>}
         </div>
       </div>
     </div>

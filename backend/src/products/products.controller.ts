@@ -114,7 +114,13 @@ export class ProductosController {
     return this.productos.listarCategorias();
   }
 
+  @Get('vendedores')
+  listarVendedores(@Request() request: { user: { idNegocio: number } }) {
+    return this.productos.listarVendedores(request.user.idNegocio);
+  }
+
   @Get(':id')
+  // Las rutas estáticas deben declararse antes de esta ruta.
   buscarUno(@Param('id', ParseIntPipe) id: number) {
     return this.productos.buscarUno(id);
   }

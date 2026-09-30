@@ -16,7 +16,9 @@ export class NegociosService {
 
   async actualizar(idNegocio: number, dto: ActualizarNegocioDto) {
     const negocio = await this.buscarUno(idNegocio);
-    Object.assign(negocio, dto);
+    const { montoMinimoOrden, ...datos } = dto;
+    Object.assign(negocio, datos);
+    if (montoMinimoOrden !== undefined) negocio.montoMinimoOrden = montoMinimoOrden.toFixed(2);
     return this.negocios.save(negocio);
   }
 

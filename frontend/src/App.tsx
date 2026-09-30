@@ -2,6 +2,8 @@ import { FormEvent, useState, useRef } from 'react';
 import { api, Negocio, Rol, Sesion } from './api';
 import Comprador from './Comprador';
 import CrearProducto from './CrearProducto';
+import useCarrito from './useCarrito';
+import PanelCarrito from './PanelCarrito';
 
 type Vista = 'ingreso' | 'registro';
 const negocioInicial = { razonSocial: '', nombreComercial: '', identificacionFiscal: '', telefono: '', direccion: '' };
@@ -232,6 +234,9 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
 type Seccion = 'explorar' | 'perfil' | 'productos';
 
 function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guardarSesion: (sesion: Sesion) => void; cerrarSesion: () => void }) {
+  const estadoCarrito = useCarrito(sesion.cliente.idCliente, sesion.accessToken, sesion.negocio.idNegocio);
+  const [carritoAbierto, setCarritoAbierto] = useState(false);
+  const unidadesCarrito = estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
   const esComprador = sesion.cliente.rol === 'COMPRADOR';
   const [seccion, setSeccion] = useState<Seccion>(esComprador ? 'explorar' : 'perfil');
   const lastClickRef = useRef(0);
@@ -254,7 +259,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
 
   const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
     const { idNegocio, ...datos } = sesion.negocio;
-    return { ...datos, identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
+    return { ...datos, montoMinimoOrden: datos.montoMinimoOrden ?? '0.00', identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
   });
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
@@ -269,7 +274,8 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
     setCargando(true);
     setError('');
     try {
-      const actualizado = await api.actualizarNegocio(negocio, sesion.accessToken);
+      const { montoMinimoOrden, ...datos } = negocio;
+      const actualizado = await api.actualizarNegocio(esComprador ? datos : negocio, sesion.accessToken);
       guardarSesion({ ...sesion, negocio: actualizado });
       setMensaje('Los datos del negocio se actualizaron correctamente.');
     } catch (error) {
@@ -330,6 +336,14 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
         </nav>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
+          <button type="button" className="carrito-boton navbar-carrito" onClick={() => setCarritoAbierto(true)}
+            aria-label={`Abrir carrito, ${unidadesCarrito} unidades`} aria-haspopup="dialog" aria-expanded={carritoAbierto}>
+            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3h2l3 12h11l2-8H6" /><circle cx="9" cy="20" r="1" /><circle cx="18" cy="20" r="1" />
+            </svg>
+            <span className="carrito-text">Carrito</span>
+            {unidadesCarrito > 0 && <span className="carrito-badge" aria-hidden="true">{unidadesCarrito}</span>}
+          </button>
           <button type="button" className="logout" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={cerrarSesion}>
             <span className="logout-text">Cerrar sesión</span>
             <svg className="logout-icon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -340,7 +354,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
       </header>
       {seccion === 'explorar' && (
         <div key={`explorar-${refreshKey}`}>
-          <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} idNegocio={sesion.negocio.idNegocio} />
+          <Comprador token={sesion.accessToken} idNegocio={sesion.negocio.idNegocio} estadoCarrito={estadoCarrito} abrirCarrito={() => setCarritoAbierto(true)} />
         </div>
       )}
       {seccion === 'perfil' && (
@@ -407,6 +421,12 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
                     />
                   </div>
                 </div>
+                {!esComprador && <label className="field">
+                  <span>Monto mínimo por pedido</span>
+                  <input type="number" min="0" max="9999999999.99" step="0.01" required
+                    value={negocio.montoMinimoOrden ?? '0.00'} onChange={evento => actualizar('montoMinimoOrden')(evento.target.value)} />
+                  <small>Importe mínimo del pedido en dinero. Usá 0 si no exigís un mínimo.</small>
+                </label>}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}
                 <button
@@ -446,6 +466,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
           </>
         </div>
       )}
+      {carritoAbierto && <PanelCarrito estado={estadoCarrito} alCerrar={() => setCarritoAbierto(false)} />}
     </main>
   );
 }

@@ -1,6 +1,7 @@
 export type Rol = 'COMPRADOR' | 'VENDEDOR';
 
 export type Negocio = {
+  montoMinimoOrden?: string;
   idNegocio: number;
   razonSocial: string;
   nombreComercial: string;
@@ -16,6 +17,7 @@ export type Sesion = {
 };
 
 export type Producto = {
+  cantidadMinimaCompra?: number | null;
   version: number;
   idProducto: number;
   idNegocio: number;
@@ -34,6 +36,9 @@ export type FiltrosProductos = {
   idNegocio?: number;
 };
 
+export type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; cantidadMinimaCompra?: number | null; imagen?: string };
+export type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[]; subtotal: string; montoMinimoOrden: string; faltanteMinimo: string; cumpleMinimos: boolean } | null;
+
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 export const ASSET_URL = API_URL.replace(/\/api\/?$/, '');
 
@@ -46,10 +51,18 @@ async function solicitud<T>(ruta: string, opciones: RequestInit = {}, token?: st
     const cuerpo = await respuesta.json().catch(() => ({}));
     throw new Error(Array.isArray(cuerpo.message) ? cuerpo.message[0] : cuerpo.message ?? 'Ocurrió un error inesperado.');
   }
-  return respuesta.status === 204 ? undefined as T : respuesta.json();
+  if (respuesta.status === 204) return undefined as T;
+  if (ruta === '/carrito') {
+    const texto = await respuesta.text();
+    return texto.trim() ? JSON.parse(texto) : null as T;
+  }
+  return respuesta.json();
 }
 
 export const api = {
+  obtenerCarrito: (token: string) => solicitud<Carrito>('/carrito', {}, token),
+  guardarCarrito: (items: Pick<ItemCarrito, 'idProducto' | 'version' | 'cantidad'>[], token: string, importar = false) =>
+    solicitud<Carrito>('/carrito', { method: 'PUT', body: JSON.stringify({ items, importar }) }, token),
   actualizarProducto: async (id: number, datos: FormData, token: string): Promise<Producto> => {
     const respuesta = await fetch(`${API_URL}/productos/${id}`, {
       method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: datos,
@@ -76,6 +89,7 @@ export const api = {
   },
   misProductos: (token: string) => solicitud<Producto[]>('/productos/mi-negocio', {}, token),
   listarCategorias: (token: string) => solicitud<string[]>('/productos/categorias', {}, token),
+  listarVendedores: (token: string) => solicitud<Pick<Negocio, 'idNegocio' | 'nombreComercial'>[]>('/productos/vendedores', {}, token),
   buscarProductos: (filtros: FiltrosProductos, token: string) => {
     const parametros = new URLSearchParams();
     if (filtros.q) parametros.set('q', filtros.q);

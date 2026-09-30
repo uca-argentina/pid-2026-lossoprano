@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "test": "jest --runInBand",
     "test:products": "npm run build && node --test test/products.test.cjs",
+    "test:cart:integration": "npm run build && node --test test/cart.integration.cjs",
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {

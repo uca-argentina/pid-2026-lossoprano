@@ -101,6 +101,10 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
             <label className="field"><span>Precio base por unidad</span><input name="precioBase" type="number" defaultValue={producto.precioBase} min="0.01" max="9999999999.99" step="0.01" required /></label>
             <label className="field"><span>Stock</span><input name="stock" type="number" defaultValue={producto.stock} min="0" max="2147483647" step="1" required /></label>
           </div>
+          <label className="field"><span>Cantidad mínima de compra (opcional)</span>
+            <input name="cantidadMinimaCompra" type="number" defaultValue={producto.cantidadMinimaCompra ?? ''} min="1" max="2147483647" step="1" placeholder="Sin mínimo: 1 unidad" />
+            <small>Vacío permite comprar desde una unidad. Si el stock es menor que el mínimo, el producto no estará disponible para comprar.</small>
+          </label>
           <div className="producto-imagenes">{(imagenes.length ? vistas : producto.imagenes.map(ruta => `${ASSET_URL}${ruta}`)).map((ruta, indice) =>
             <img key={ruta} src={ruta} alt={`Imagen ${indice + 1} del producto`} />)}</div>
           <label className="field"><span>Reemplazar imágenes</span><input name="imagenes" type="file" accept="image/jpeg,image/png,image/webp" multiple

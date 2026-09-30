@@ -6,6 +6,9 @@ export class Negocio {
   @PrimaryGeneratedColumn({ name: 'id_negocio' })
   idNegocio: number;
 
+  @Column({ name: 'monto_minimo_orden', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  montoMinimoOrden: string;
+
   @Column({ name: 'razon_social', length: 150 })
   razonSocial: string;
 

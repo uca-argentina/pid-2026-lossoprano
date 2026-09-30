@@ -1,7 +1,10 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsNumber, IsPositive, IsString, Max, MaxLength, Min } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CrearProductoDto {
+  @Transform(({ value }) => value === '' || value == null ? null : Number(value))
+  @IsOptional() @IsInt() @Min(1) @Max(2147483647)
+  cantidadMinimaCompra: number | null = null;
   @IsString() @IsNotEmpty() @MaxLength(150) nombre: string;
   @IsString() @IsNotEmpty() descripcion: string;
   @IsString() @IsNotEmpty() @MaxLength(100) categoria: string;

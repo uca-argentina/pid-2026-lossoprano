@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Patch, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, ForbiddenException, Get, Patch, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ActualizarNegocioDto } from './dto/update-business.dto';
 import { NegociosService } from './business.service';
@@ -15,9 +15,12 @@ export class NegociosController {
 
   @Patch('mi-negocio')
   actualizarElMio(
-    @Request() request: { user: { idNegocio: number } },
+    @Request() request: { user: { idNegocio: number; rol: string } },
     @Body() dto: ActualizarNegocioDto,
   ) {
+    if (dto.montoMinimoOrden !== undefined && request.user.rol !== 'VENDEDOR') {
+      throw new ForbiddenException('Solo los vendedores pueden definir un monto mínimo de pedido.');
+    }
     return this.negocios.actualizar(request.user.idNegocio, dto);
   }
   @Delete('mi-negocio')
