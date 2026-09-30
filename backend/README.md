@@ -20,6 +20,8 @@ Verificación: `npm run test:products` y `npm run test:cart:integration` (requie
 
 Mínimos mayoristas: `montoMinimoOrden` se configura con `PATCH /negocios/mi-negocio` solo para vendedores; 0 indica sin mínimo. `cantidadMinimaCompra` es opcional en los productos (vacío/null permite comprar desde 1 unidad). El carrito devuelve `subtotal`, `montoMinimoOrden`, `faltanteMinimo` y `cumpleMinimos`. Puede guardarse por debajo del monto requerido para armarlo progresivamente, pero la API rechaza cantidades por debajo del mínimo del producto. Cambiar el monto no vacía carritos; editar un producto sí lo retira. Para producción aplicar también `migrations/003-order-minimums.sql`; en desarrollo basta reiniciar la API para sincronizar las nuevas columnas.
 
+Categorías y precios escalonados: cada producto tiene `idCategoria` (una general o una propia del vendedor) y, opcionalmente, `preciosEscalonados: [{ cantidadMinima, precioUnitario }]`, enviados como JSON en el formulario multipart. `GET/POST /categorias` y `DELETE /categorias/:id` son solo para vendedores; no se puede borrar una categoría con productos (409). **Si la base ya tiene productos, correr `npm run migrar:categorias` antes de iniciar la API**, también en desarrollo.
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/auth/registro` | Registra cliente y negocio. Roles: `COMPRADOR`, `VENDEDOR`. |
