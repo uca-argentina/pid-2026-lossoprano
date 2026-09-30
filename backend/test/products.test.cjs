@@ -10,6 +10,23 @@ const { ValidarCarritoDto } = require('../dist/products/dto/validar-carrito.dto'
 
 const datos = { nombre: 'Producto', descripcion: 'Descripción', categoria: 'Categoría', stock: 3, precioBase: 12.5 };
 
+test('explorar excluye el negocio autenticado incluso con filtros', async () => {
+  const condiciones = [];
+  const consulta = {
+    leftJoinAndSelect() { return this; },
+    where(sql, parametros) { condiciones.push({ sql, parametros }); return this; },
+    andWhere(sql, parametros) { condiciones.push({ sql, parametros }); return this; },
+    orderBy() { return this; }, take() { return this; }, skip() { return this; },
+    getMany: async () => [],
+  };
+  const service = new ProductosService({ createQueryBuilder: () => consulta });
+  await service.buscar({ q: 'Producto', categoria: 'Bebidas', idNegocio: 7 }, 7);
+  assert.deepEqual(condiciones[0], {
+    sql: 'producto.idNegocio <> :idNegocioActual', parametros: { idNegocioActual: 7 },
+  });
+  assert.equal(condiciones.length, 4);
+});
+
 test('editar se limita al negocio autenticado y conserva imágenes si no hay reemplazo', async () => {
   let cambio;
   const service = new ProductosService({

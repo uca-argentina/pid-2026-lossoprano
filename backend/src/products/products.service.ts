@@ -20,10 +20,11 @@ export class ProductosService {
     return this.productos.save(producto);
   }
 
-  async buscar(filtros: BuscarProductosDto) {
+  async buscar(filtros: BuscarProductosDto, idNegocioActual: number) {
     const consulta = this.productos
       .createQueryBuilder('producto')
       .leftJoinAndSelect('producto.negocio', 'negocio')
+      .where('producto.idNegocio <> :idNegocioActual', { idNegocioActual })
       .orderBy('producto.idProducto', 'DESC')
       .take(filtros.limit ?? 24)
       .skip(filtros.offset ?? 0);

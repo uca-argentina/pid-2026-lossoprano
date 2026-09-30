@@ -65,8 +65,8 @@ export class ProductosController {
   }
 
   @Get()
-  buscar(@Query() filtros: BuscarProductosDto) {
-    return this.productos.buscar(filtros);
+  buscar(@Query() filtros: BuscarProductosDto, @Request() request: { user: { idNegocio: number } }) {
+    return this.productos.buscar(filtros, request.user.idNegocio);
   }
 
   @Post('carrito/validar')
