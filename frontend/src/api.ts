@@ -75,6 +75,7 @@ export const api = {
     }
   },
   misProductos: (token: string) => solicitud<Producto[]>('/productos/mi-negocio', {}, token),
+  listarCategorias: (token: string) => solicitud<string[]>('/productos/categorias', {}, token),
   buscarProductos: (filtros: FiltrosProductos, token: string) => {
     const parametros = new URLSearchParams();
     if (filtros.q) parametros.set('q', filtros.q);

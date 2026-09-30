@@ -111,7 +111,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
             <span>Descripción</span>
             <textarea name="descripcion" rows={4} required />
           </label>
-          <CampoCategoria />
+          <CampoCategoria token={token} key={misProductos.map(producto => `${producto.idProducto}-${producto.version}`).join(',')} />
           <div className="form-grid">
             <label className="field">
               <span>Precio base por unidad</span>

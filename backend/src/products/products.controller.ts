@@ -109,6 +109,11 @@ export class ProductosController {
     return this.productos.buscarDeNegocio(request.user.idNegocio);
   }
 
+  @Get('categorias')
+  listarCategorias() {
+    return this.productos.listarCategorias();
+  }
+
   @Get(':id')
   buscarUno(@Param('id', ParseIntPipe) id: number) {
     return this.productos.buscarUno(id);

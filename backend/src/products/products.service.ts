@@ -45,6 +45,16 @@ export class ProductosService {
     return this.productos.find({ where: { idNegocio }, order: { idProducto: 'DESC' } });
   }
 
+  async listarCategorias(): Promise<string[]> {
+    const filas = await this.productos.createQueryBuilder('producto')
+      .select('TRIM(producto.categoria)', 'categoria')
+      .distinct(true)
+      .where("TRIM(producto.categoria) <> ''")
+      .orderBy('categoria', 'ASC')
+      .getRawMany<{ categoria: string }>();
+    return filas.map(fila => fila.categoria);
+  }
+
   async buscarUno(idProducto: number) {
     const producto = await this.productos.findOne({ where: { idProducto }, relations: { negocio: true } });
     if (!producto) throw new NotFoundException('Producto no encontrado.');

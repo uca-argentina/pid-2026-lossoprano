@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import CampoCategoria from './CampoCategoria';
 
@@ -12,10 +12,40 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
   const [imagenes, setImagenes] = useState<File[]>([]);
   const [vistas, setVistas] = useState<string[]>([]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const elemento = dialogo.current!;
+    const cuerpo = document.body;
+    const raiz = document.documentElement;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const propiedades = ['position', 'top', 'left', 'width', 'overflow', 'padding-right'] as const;
+    const estilosPrevios = propiedades.map(propiedad => ({
+      propiedad,
+      valor: cuerpo.style.getPropertyValue(propiedad),
+      prioridad: cuerpo.style.getPropertyPriority(propiedad),
+    }));
+    const overflowPrevio = raiz.style.getPropertyValue('overflow');
+    const prioridadOverflow = raiz.style.getPropertyPriority('overflow');
+    const anchoScrollbar = window.innerWidth - raiz.clientWidth;
+    const paddingDerecho = parseFloat(window.getComputedStyle(cuerpo).paddingRight) || 0;
+    cuerpo.style.position = 'fixed';
+    cuerpo.style.top = `-${scrollY}px`;
+    cuerpo.style.left = `-${scrollX}px`;
+    cuerpo.style.width = '100%';
+    cuerpo.style.overflow = 'hidden';
+    cuerpo.style.paddingRight = `${paddingDerecho + anchoScrollbar}px`;
+    raiz.style.overflow = 'hidden';
     elemento.showModal();
-    return () => elemento.close();
+    return () => {
+      elemento.close();
+      for (const { propiedad, valor, prioridad } of estilosPrevios) {
+        if (valor) cuerpo.style.setProperty(propiedad, valor, prioridad);
+        else cuerpo.style.removeProperty(propiedad);
+      }
+      if (overflowPrevio) raiz.style.setProperty('overflow', overflowPrevio, prioridadOverflow);
+      else raiz.style.removeProperty('overflow');
+      window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
+    };
   }, []);
   useEffect(() => {
     const urls = imagenes.map(imagen => URL.createObjectURL(imagen));
@@ -66,7 +96,7 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
         <fieldset className="producto-campos" disabled={ocupado}>
           <label className="field"><span>Nombre</span><input name="nombre" defaultValue={producto.nombre} maxLength={150} required /></label>
           <label className="field"><span>Descripción</span><textarea name="descripcion" defaultValue={producto.descripcion} rows={4} required /></label>
-          <CampoCategoria valorInicial={producto.categoria} />
+          <CampoCategoria token={token} valorInicial={producto.categoria} />
           <div className="form-grid">
             <label className="field"><span>Precio base por unidad</span><input name="precioBase" type="number" defaultValue={producto.precioBase} min="0.01" max="9999999999.99" step="0.01" required /></label>
             <label className="field"><span>Stock</span><input name="stock" type="number" defaultValue={producto.stock} min="0" max="2147483647" step="1" required /></label>
