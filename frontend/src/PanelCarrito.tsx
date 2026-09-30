@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { ASSET_URL } from './api';
 import { formatCurrency } from './utils';
 import useCarrito from './useCarrito';
+import CantidadCarrito from './CantidadCarrito';
 
 export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<typeof useCarrito>; alCerrar: () => void }) {
   const { carrito, avisoCarrito, actualizarCantidad, quitar, vaciar } = estado;
@@ -32,17 +33,10 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
                       {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
                       <div className="carrito-item-info">
                         <b>{item.nombre}</b>
-                        <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
+                        <span className="muted carrito-precio-unitario">{formatCurrency(item.precioBase)} c/u</span>
                         {item.cantidadMinimaCompra && <small>Mínimo: {item.cantidadMinimaCompra} unidades</small>}
                       </div>
-                      <input
-                        type="number"
-                        min={item.cantidadMinimaCompra ?? 1}
-                        step={1}
-                        max={item.stock}
-                        value={item.cantidad}
-                        onChange={evento => actualizarCantidad(item.idProducto, evento.target.valueAsNumber)}
-                      />
+                      <CantidadCarrito item={item} alGuardar={cantidad => actualizarCantidad(item.idProducto, cantidad)} />
                       <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
                     </li>
                   ))}
@@ -51,12 +45,23 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
                   <span>Subtotal</span>
                   <b>{formatCurrency(subtotalCarrito)}</b>
                 </div>
-                <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
-                {Number(carrito.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo del vendedor: {formatCurrency(carrito.montoMinimoOrden)}.</p>}
+                {Number(carrito.montoMinimoOrden) > 0 && <div className="carrito-progreso">
+                  <div className="carrito-progreso-etiquetas">
+                    <span>Pedido mínimo: {formatCurrency(carrito.montoMinimoOrden)}</span>
+                    <b>{Math.min(100, Math.floor(Number(subtotalCarrito) / Number(carrito.montoMinimoOrden) * 100))}%</b>
+                  </div>
+                  <progress
+                    max={Number(carrito.montoMinimoOrden)}
+                    value={Math.min(Number(subtotalCarrito), Number(carrito.montoMinimoOrden))}
+                    aria-label="Progreso hacia el monto mínimo del pedido"
+                    aria-valuetext={Number(carrito.faltanteMinimo) > 0 ? `Faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el mínimo` : 'Monto mínimo alcanzado'}
+                  />
+                </div>}
                 <p className={carrito.cumpleMinimos ? 'success' : 'muted'} role="status">
                   {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.`}
                 </p>
-                <button type="button" className="primary" disabled={!carrito.cumpleMinimos}>
+                <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
+                <button type="button" className="primary finalizar-compra" disabled={!carrito.cumpleMinimos}>
                   Finalizar compra
                 </button>
               </>
