@@ -113,6 +113,11 @@
 .carrito-subtotal{display:flex;justify-content:space-between;align-items:center;font-size:17px;padding-top:14px;border-top:1px solid #e2e6dd}
 
 .logout-icon{display:none}
+@media(max-width:760px){
+  .auth-layout{display:flex;flex-direction:column}
+  .auth-layout .auth-card{order:0}
+  .auth-layout .hero{order:1}
+}
 .navbar-tabs{gap:18px}
 @media(max-width:480px){
   .navbar{height:64px;min-height:64px;flex-wrap:nowrap;padding:0 12px;gap:12px}

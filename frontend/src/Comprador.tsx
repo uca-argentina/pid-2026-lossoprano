@@ -154,6 +154,9 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
                 <p className={carrito.cumpleMinimos ? 'success' : 'muted'} role="status">
                   {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.`}
                 </p>
+                <button type="button" className="primary" disabled={!carrito.cumpleMinimos}>
+                  Finalizar compra
+                </button>
               </>
             )}
           </aside>
