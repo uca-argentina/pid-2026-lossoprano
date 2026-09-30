@@ -12,12 +12,13 @@ Implementado:
 - Alta, edición y baja de negocios; identificación fiscal y correo únicos.
 - Creación, edición en modal y eliminación de productos propios, con imágenes, categoría, precio y stock.
 - Exploración y detalle de productos de otros negocios; filtros por texto, categoría y negocio vendedor.
-- Categorías sugeridas predeterminadas y categorías ya utilizadas por otros usuarios. Se permite escribir categorías nuevas.
+- Categorías como tabla propia: generales (se crean solas al iniciar la API) y propias de cada vendedor. Cada producto pertenece a una sola categoría. No se puede eliminar una categoría que tenga productos asociados.
+- Precios escalonados por producto: el precio unitario baja al alcanzar determinadas cantidades.
 - Carrito persistido en PostgreSQL, de un único vendedor por cuenta.
 - Monto mínimo de orden por vendedor y cantidad mínima opcional por producto.
 - Botón de finalizar compra habilitado solo al cumplir las condiciones. **Por ahora no hace nada al pulsarlo**, intencionalmente.
 
-No implementado: creación de pedidos, pago, estados de pedido, reserva/descuento de stock por compra, panel de pedidos, checkout multi-vendedor, precios escalonados y reseñas. No presentar el botón actual como un checkout funcional.
+No implementado: creación de pedidos, pago, estados de pedido, reserva/descuento de stock por compra, panel de pedidos, checkout multi-vendedor y reseñas. No presentar el botón actual como un checkout funcional.
 
 ## Decisiones de negocio que deben conservarse
 
@@ -29,7 +30,9 @@ No implementado: creación de pedidos, pago, estados de pedido, reserva/descuent
 - El mínimo de orden es un monto monetario del subtotal de ese vendedor, no una cantidad total de unidades. Cero significa sin mínimo monetario.
 - La cantidad mínima de un producto es opcional: null/vacío equivale a comprar desde una unidad. Stock y cantidades son enteros; precios y mínimos monetarios admiten dos decimales.
 - Se puede construir un carrito por debajo del mínimo monetario; se impide finalizar, no guardarlo. Las cantidades de cada producto sí deben cumplir su mínimo.
-- Editar **cualquier campo** de un producto lo retira de todos los carritos que lo contienen. No actualizar silenciosamente el precio de un artículo ya agregado.
+- Editar **cualquier campo** de un producto (incluidos sus precios escalonados) lo retira de todos los carritos que lo contienen. No actualizar silenciosamente el precio de un artículo ya agregado.
+- Categorías: las generales no las borra nadie; las de un vendedor solo las ve y usa ese vendedor. Los nombres se comparan sin mayúsculas, acentos ni espacios repetidos, y no se puede repetir el nombre de una general ni de una propia. El filtro de Explorar agrupa por nombre, así que «Vinos» de dos vendedores aparece como una sola opción. La FK producto → categoría es `NO ACTION`: la base también impide borrar una categoría con productos, además del chequeo del servicio, que devuelve 409 con un mensaje claro.
+- Precios escalonados: hasta 10 tramos por producto (`cantidadMinima`, `precioUnitario`). Cada tramo empieza por encima de la cantidad mínima de compra y su precio es menor que el precio base y que el tramo anterior. Se aplica el tramo más alto alcanzado; el subtotal y el monto mínimo del vendedor se calculan con ese precio.
 
 ## Organización y tecnologías
 
@@ -40,11 +43,12 @@ No hay un package.json de monorepo: instalar y ejecutar cada carpeta por separad
 | API | NestJS 11, TypeScript, TypeORM, PostgreSQL 16 |
 | Autenticación | JWT (8 horas) y bcrypt; `backend/src/auth/` |
 | Negocios | `backend/src/business/` |
-| Productos y carritos | `backend/src/products/` |
+| Productos, precios escalonados y carritos | `backend/src/products/` |
+| Categorías | `backend/src/categories/` |
 | Web | React 19, TypeScript, Vite 6; CSS propio, no Tailwind |
 | Aplicación y perfil | `frontend/src/App.tsx` |
 | Catálogo comprador | `frontend/src/Comprador.tsx` |
-| Formularios de productos | `CrearProducto.tsx`, `EditarProducto.tsx`, `CampoCategoria.tsx` |
+| Formularios de productos | `CrearProducto.tsx`, `EditarProducto.tsx`, `CampoCategoria.tsx` (también Mis categorías), `CampoPreciosEscalonados.tsx` |
 | Estado del carrito | `frontend/src/useCarrito.ts` |
 | Panel y cantidades | `PanelCarrito.tsx`, `CantidadCarrito.tsx` |
 | Tipos y acceso HTTP | `frontend/src/api.ts` |
@@ -93,7 +97,9 @@ Los ejemplos son comandos normales de terminal. En un entorno Codex con instrucc
 | --- | --- |
 | `negocio` | Datos fiscales/contacto y `monto_minimo_orden`; identificación fiscal única |
 | `cliente` | Email único, hash de contraseña, rol y FK al negocio |
-| `producto` | FK al negocio, descripción, categoría (texto libre), precio decimal, stock entero, rutas de imágenes, versión y cantidad mínima |
+| `categoria` | Nombre, clave normalizada y FK opcional al negocio (null = general) |
+| `producto` | FK al negocio y a la categoría, descripción, precio decimal, stock entero, rutas de imágenes, versión y cantidad mínima |
+| `precio_escalonado` | FK al producto (cascade), cantidad desde la que aplica y precio unitario |
 | `carrito_item` | PK compuesta cuenta/producto; cantidad y versión del producto agregado |
 
 Los borrados de negocio, cuenta y producto tienen relaciones con eliminación en cascada según las entidades. Eliminar un negocio elimina sus cuentas y productos, y las entradas de carrito relacionadas.
@@ -107,7 +113,9 @@ En producción, `synchronize` está deshabilitado. Hay scripts SQL incrementales
 1. `001-product-version.sql`.
 2. `002-cart.sql`.
 3. `003-order-minimums.sql`.
+4. `004-categorias-precios-escalonados.sql`.
 
+**La 004 también hay que aplicarla en desarrollo si la base ya tiene productos**, antes de levantar la API: `npm run migrar:categorias` desde `backend/` (usa `DATABASE_URL` del `.env`). Pasa la categoría de texto de cada producto a la tabla `categoria` (si coincide con una general la usa; si no, crea una del vendedor) y borra la columna vieja. Sin este paso, `synchronize` intentaría borrar la columna de texto y crear `id_categoria` NOT NULL, y fallaría. Se puede correr más de una vez. En una base vacía no hace falta.
 Estos scripts no constituyen un esquema inicial completo ni hay un ejecutor de migraciones configurado. Para una base de producción vacía se necesita preparar también el esquema base.
 
 Las imágenes se guardan en `backend/uploads/productos/`; PostgreSQL guarda solo las rutas. Se aceptan JPG, PNG y WebP, hasta cinco imágenes de 2 MiB cada una. Editar sin enviar imágenes conserva las existentes; enviar nuevas reemplaza toda la lista.
@@ -127,8 +135,10 @@ Todas las rutas siguientes son relativas a `/api`. Salvo registro/login, requier
 | GET | `/productos` | Catálogo; `q`, `categoria`, `idNegocio`, `limit`, `offset` |
 | GET | `/productos/:id` | Detalle |
 | GET | `/productos/mi-negocio` | Productos propios |
-| GET | `/productos/categorias`, `/productos/vendedores` | Opciones para filtros |
-| POST | `/productos` | Crear producto (vendedor, multipart) |
+| GET | `/productos/categorias`, `/productos/vendedores` | Opciones para filtros (nombres de categorías con productos) |
+| GET / POST | `/categorias` | Generales y propias con cantidad de productos / crear propia (vendedor) |
+| DELETE | `/categorias/:id` | Borrar una propia sin productos (vendedor); 409 si tiene productos |
+| POST | `/productos` | Crear producto (vendedor, multipart; `idCategoria` y `preciosEscalonados` como JSON) |
 | PATCH / DELETE | `/productos/:id` | Modificar/borrar producto propio (vendedor) |
 | GET / PUT | `/carrito` | Leer/reemplazar carrito de la cuenta autenticada |
 | POST | `/productos/carrito/validar` | Validación de IDs/versiones; no reemplaza el guardado completo |
@@ -150,7 +160,7 @@ Una lista vacía lo vacía. No aceptar precio, vendedor ni identidad de cuenta s
 - Omite productos eliminados, con versión antigua, sin stock o cuyo stock no alcanza su mínimo. Ajusta cantidades excesivas al stock disponible.
 - Actualizar un producto incrementa su `version` mediante TypeORM y elimina sus entradas de carrito en la misma transacción. La versión impide restaurarlas desde una pestaña con estado antiguo.
 - El mínimo monetario del vendedor se consulta al leer: cambiarlo no vacía carritos y recalcula su cumplimiento.
-- El carrito devuelve `subtotal`, `montoMinimoOrden`, `faltanteMinimo`, `cumpleMinimos` e items con datos actuales. Sin items devuelve JSON `null`.
+- El carrito devuelve `subtotal`, `montoMinimoOrden`, `faltanteMinimo`, `cumpleMinimos` e items con datos actuales, incluidos `precioUnitario` (según el tramo alcanzado) y `preciosEscalonados`. Sin items devuelve JSON `null`.
 - `useCarrito` consulta al iniciar, al recuperar el foco y cada 10 segundos. No hay WebSockets; los cambios ajenos no se reflejan instantáneamente.
 - Hay protección contra respuestas de consulta obsoletas y operaciones simultáneas dentro de la misma instancia del hook. Entre sesiones, PUT sigue siendo reemplazo completo; no hay fusión de cambios ni control de versión global del carrito.
 
@@ -204,7 +214,7 @@ Checklist manual útil antes de entregar cambios:
 
 ## Próximos pasos y precauciones
 
-Antes de implementar pedidos, definir estados, términos de pago, política de stock y si el alcance sigue siendo un solo vendedor por checkout. El guardado del carrito no reserva ni descuenta stock: un checkout futuro deberá revalidar precio/versiones, stock y mínimos dentro de una transacción y tratar reintentos de forma segura.
+Al implementar pedidos, guardar en cada línea el precio unitario aplicado en ese momento (no recalcularlo después) y la categoría no hace falta copiarla. Antes de implementar pedidos, definir estados, términos de pago, política de stock y si el alcance sigue siendo un solo vendedor por checkout. El guardado del carrito no reserva ni descuenta stock: un checkout futuro deberá revalidar precio/versiones, stock y mínimos dentro de una transacción y tratar reintentos de forma segura.
 
 Para producción también falta revisar autenticación/expiración y manejo de errores, límites de peticiones, validación real del contenido de imágenes (actualmente se filtra por MIME declarado), almacenamiento persistente y migraciones completas. Son puntos a evaluar, no funcionalidades ya implementadas.
 

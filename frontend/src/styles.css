@@ -186,3 +186,33 @@
   .carrito-items li>.link{grid-column:3;min-height:44px}
   .carrito-precio-unitario{font-size:13px;margin-bottom:0}
 }
+select{font:inherit}
+.field select{display:block;width:100%;border:1px solid #ced7ce;border-radius:7px;background:#fff;padding:12px 13px;color:#18352c;outline:0}
+.field select:focus{border-color:#477759;box-shadow:0 0 0 3px #e3edcf}
+.categoria-agregar{margin-top:8px;font-size:13px}
+.categoria-nueva{display:flex;align-items:center;gap:12px;margin-top:8px}
+.field .categoria-nueva input{flex:1;min-width:0}
+.precios-escalonados{border:1px solid #e2e6dd;border-radius:10px;padding:14px 16px 16px;margin:0 0 20px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.precios-escalonados legend{font-size:13px;font-weight:600;color:#395249;padding:0 6px}
+.precios-escalonados>small{color:#829087;font-size:11px}
+.precios-escalonados .link{align-self:flex-start;font-size:13px}
+.tramo-fila{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}
+.tramo-fila label span{display:block;margin-bottom:5px;font-size:12px;font-weight:600;color:#395249}
+.tramo-fila input{display:block;width:100%;border:1px solid #ced7ce;border-radius:7px;background:#fff;padding:10px 12px;color:#18352c;outline:0}
+.tramo-fila input:focus{border-color:#477759;box-shadow:0 0 0 3px #e3edcf}
+.tramo-fila .link{padding-bottom:11px}
+.tabla-precios{border-collapse:collapse;margin:14px 0 6px;font-size:14px;min-width:220px}
+.tabla-precios caption{text-align:left;font-size:13px;font-weight:600;color:#395249;margin-bottom:6px}
+.tabla-precios th{text-align:left;font-size:12px;color:#6e7c74;font-weight:600;padding:0 16px 6px 0}
+.tabla-precios td{padding:6px 16px 6px 0;border-top:1px solid #e2e6dd;font-variant-numeric:tabular-nums}
+.precio-mayorista{color:#3e6e28;font-weight:600}
+.vendedor .precio-mayorista{color:#6c3d82}
+.carrito-precio-unitario s{color:#96a39b;margin-right:2px}
+.detalle-total{margin:12px 0 0}
+.mis-categorias h2{font-size:21px}
+.categorias-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.categorias-lista li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #e2e6dd;border-radius:9px;background:#fff}
+.categorias-lista li div{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.categorias-lista small{color:#6e7c74;font-size:12px}
+.categorias-lista .danger{padding:8px 12px;width:auto}
+@media(max-width:480px){.tramo-fila{grid-template-columns:1fr 1fr}.tramo-fila .link{grid-column:1/-1;padding:0;justify-self:start}}

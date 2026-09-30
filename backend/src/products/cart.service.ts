@@ -3,6 +3,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import { Cliente } from '../users/user.entity';
 import { CarritoItem } from './cart-item.entity';
 import { Producto } from './products.entity';
+import { precioParaCantidad } from './price-tier.entity';
 import { GuardarCarritoDto } from './dto/guardar-carrito.dto';
 
 @Injectable()
@@ -11,20 +12,24 @@ export class CarritoService {
 
   private async leer(manager: EntityManager, idCliente: number) {
     const filas = await manager.getRepository(CarritoItem).find({
-      where: { idCliente }, relations: { producto: { negocio: true } }, order: { idProducto: 'ASC' },
+      where: { idCliente }, relations: { producto: { negocio: true, preciosEscalonados: true } }, order: { idProducto: 'ASC' },
     });
     const vigentes = filas.filter(item => item.version === item.producto.version);
     if (!vigentes.length) return null;
     const negocio = vigentes[0].producto.negocio;
-    const subtotalCentavos = vigentes.reduce((total, item) => total + Math.round(Number(item.producto.precioBase) * 100) * item.cantidad, 0);
+    const precios = vigentes.map(item => precioParaCantidad(item.producto.precioBase, item.producto.preciosEscalonados, item.cantidad));
+    const subtotalCentavos = vigentes.reduce((total, item, i) => total + Math.round(Number(precios[i]) * 100) * item.cantidad, 0);
     const minimoCentavos = Math.round(Number(negocio.montoMinimoOrden) * 100);
     const faltanteCentavos = Math.max(0, minimoCentavos - subtotalCentavos);
     return { idNegocio: negocio.idNegocio, nombreNegocio: negocio.nombreComercial,
       subtotal: (subtotalCentavos / 100).toFixed(2), montoMinimoOrden: negocio.montoMinimoOrden,
       faltanteMinimo: (faltanteCentavos / 100).toFixed(2),
       cumpleMinimos: faltanteCentavos === 0 && vigentes.every(item => item.cantidad >= (item.producto.cantidadMinimaCompra ?? 1) && item.cantidad <= item.producto.stock),
-      items: vigentes.map(item => ({ idProducto: item.idProducto, version: item.version,
-        cantidad: item.cantidad, nombre: item.producto.nombre, precioBase: item.producto.precioBase,
+      items: vigentes.map((item, i) => ({ idProducto: item.idProducto, version: item.version,
+        cantidad: item.cantidad, nombre: item.producto.nombre, precioBase: item.producto.precioBase, precioUnitario: precios[i],
+        preciosEscalonados: item.producto.preciosEscalonados
+          .map(({ cantidadMinima, precioUnitario }) => ({ cantidadMinima, precioUnitario }))
+          .sort((a, b) => a.cantidadMinima - b.cantidadMinima),
         stock: item.producto.stock, cantidadMinimaCompra: item.producto.cantidadMinimaCompra, imagen: item.producto.imagenes[0] })) };
   }
 
@@ -39,7 +44,7 @@ export class CarritoService {
       const nuevos: CarritoItem[] = [];
       let vendedor: number | undefined;
       for (const item of [...dto.items].sort((a, b) => a.idProducto - b.idProducto)) {
-        const producto = await manager.getRepository(Producto).findOne({ where: { idProducto: item.idProducto }, lock: { mode: 'pessimistic_read' } });
+        const producto = await manager.getRepository(Producto).findOne({ where: { idProducto: item.idProducto }, lock: { mode: 'pessimistic_read' }, loadEagerRelations: false });
         if (!producto || producto.version !== item.version || producto.stock === 0) continue;
         const minimo = producto.cantidadMinimaCompra ?? 1;
         if (producto.stock < minimo) continue;

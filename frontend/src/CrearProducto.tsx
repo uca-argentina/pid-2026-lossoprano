@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import { formatCurrency } from './utils';
 import EditarProducto from './EditarProducto';
-import CampoCategoria from './CampoCategoria';
+import CampoCategoria, { GestionCategorias, useCategorias } from './CampoCategoria';
+import CampoPreciosEscalonados from './CampoPreciosEscalonados';
 
 interface CrearProductoProps {
   token: string;
@@ -17,6 +18,8 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
   const [mensaje, setMensaje] = useState('');
   const [misProductos, setMisProductos] = useState<Producto[]>([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [formulario, setFormulario] = useState(0);
+  const categorias = useCategorias(token);
 
   useEffect(() => {
     const urls = imagenes.map(imagen => URL.createObjectURL(imagen));
@@ -36,7 +39,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
     setError('');
     setMensaje('');
 
-    for (const campo of ['nombre', 'descripcion', 'categoria']) {
+    for (const campo of ['nombre', 'descripcion', 'idCategoria']) {
       const valor = String(datos.get(campo)).trim();
       if (!valor) {
         setError('Completá el nombre, la descripción y la categoría.');
@@ -60,9 +63,11 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
     try {
       await api.crearProducto(datos, token);
       formulario.reset();
+      setFormulario(actual => actual + 1);
       setImagenes([]);
       setMensaje('Producto creado correctamente.');
       setMisProductos(await api.misProductos(token));
+      void categorias.recargar();
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudo crear el producto.');
     } finally {
@@ -86,8 +91,9 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
             {producto.imagenes[0] && <img src={`${ASSET_URL}${producto.imagenes[0]}`} alt={producto.nombre} />}
             <div className="producto-info">
               <b>{producto.nombre}</b>
-              <span className="muted">{producto.categoria}</span>
+              <span className="muted">{producto.categoria.nombre}</span>
               <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
+              {producto.preciosEscalonados.length > 0 && <small>{producto.preciosEscalonados.length === 1 ? '1 precio por cantidad' : `${producto.preciosEscalonados.length} precios por cantidad`}</small>}
               <small>Stock: {producto.stock}</small>
               {producto.cantidadMinimaCompra && <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>}
             </div>
@@ -112,7 +118,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
             <span>Descripción</span>
             <textarea name="descripcion" rows={4} required />
           </label>
-          <CampoCategoria token={token} key={misProductos.map(producto => `${producto.idProducto}-${producto.version}`).join(',')} />
+          <CampoCategoria estado={categorias} key={`categoria-${formulario}`} />
           <div className="form-grid">
             <label className="field">
               <span>Precio base por unidad</span>
@@ -128,6 +134,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
             <input name="cantidadMinimaCompra" type="number" min="1" max="2147483647" step="1" placeholder="Sin mínimo: 1 unidad" />
             <small>Dejá el campo vacío para permitir compras desde una unidad.</small>
           </label>
+          <CampoPreciosEscalonados key={`precios-${formulario}`} />
           <label className="field">
             <span>Imágenes</span>
             <input name="imagenes" type="file" accept="image/jpeg,image/png,image/webp" multiple required
@@ -147,19 +154,24 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
         {mensaje && <p className="success" role="status">{mensaje}</p>}
       </form>
       {listPosition === 'below' && productosList}
+      <hr className="product-separator" />
+      <GestionCategorias estado={categorias} />
       {productoSeleccionado && <EditarProducto
         producto={productoSeleccionado}
         token={token}
+        categorias={categorias}
         alCerrar={() => setProductoSeleccionado(null)}
         alGuardar={producto => {
           setMisProductos(actual => actual.map(item => item.idProducto === producto.idProducto ? producto : item));
           setProductoSeleccionado(null);
           setMensaje('Producto actualizado correctamente.');
+          void categorias.recargar();
         }}
         alEliminar={id => {
           setMisProductos(actual => actual.filter(item => item.idProducto !== id));
           setProductoSeleccionado(null);
           setMensaje('Producto eliminado correctamente.');
+          void categorias.recargar();
         }}
       />}
     </section>

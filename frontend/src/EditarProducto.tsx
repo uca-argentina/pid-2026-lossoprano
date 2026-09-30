@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
-import CampoCategoria from './CampoCategoria';
+import CampoCategoria, { EstadoCategorias } from './CampoCategoria';
+import CampoPreciosEscalonados from './CampoPreciosEscalonados';
 
-export default function EditarProducto({ producto, token, alCerrar, alGuardar, alEliminar }: {
-  producto: Producto; token: string; alCerrar: () => void;
+export default function EditarProducto({ producto, token, categorias, alCerrar, alGuardar, alEliminar }: {
+  producto: Producto; token: string; categorias: EstadoCategorias; alCerrar: () => void;
   alGuardar: (producto: Producto) => void; alEliminar: (id: number) => void;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
@@ -57,7 +58,7 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
     evento.preventDefault();
     if (ocupado) return;
     const datos = new FormData(evento.currentTarget);
-    for (const campo of ['nombre', 'descripcion', 'categoria']) {
+    for (const campo of ['nombre', 'descripcion', 'idCategoria']) {
       const valor = String(datos.get(campo) ?? '').trim();
       if (!valor) { setError('Completá el nombre, la descripción y la categoría.'); return; }
       datos.set(campo, valor);
@@ -96,7 +97,7 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
         <fieldset className="producto-campos" disabled={ocupado}>
           <label className="field"><span>Nombre</span><input name="nombre" defaultValue={producto.nombre} maxLength={150} required /></label>
           <label className="field"><span>Descripción</span><textarea name="descripcion" defaultValue={producto.descripcion} rows={4} required /></label>
-          <CampoCategoria token={token} valorInicial={producto.categoria} />
+          <CampoCategoria estado={categorias} valorInicial={producto.idCategoria} />
           <div className="form-grid">
             <label className="field"><span>Precio base por unidad</span><input name="precioBase" type="number" defaultValue={producto.precioBase} min="0.01" max="9999999999.99" step="0.01" required /></label>
             <label className="field"><span>Stock</span><input name="stock" type="number" defaultValue={producto.stock} min="0" max="2147483647" step="1" required /></label>
@@ -105,6 +106,7 @@ export default function EditarProducto({ producto, token, alCerrar, alGuardar, a
             <input name="cantidadMinimaCompra" type="number" defaultValue={producto.cantidadMinimaCompra ?? ''} min="1" max="2147483647" step="1" placeholder="Sin mínimo: 1 unidad" />
             <small>Vacío permite comprar desde una unidad. Si el stock es menor que el mínimo, el producto no estará disponible para comprar.</small>
           </label>
+          <CampoPreciosEscalonados inicial={producto.preciosEscalonados} />
           <div className="producto-imagenes">{(imagenes.length ? vistas : producto.imagenes.map(ruta => `${ASSET_URL}${ruta}`)).map((ruta, indice) =>
             <img key={ruta} src={ruta} alt={`Imagen ${indice + 1} del producto`} />)}</div>
           <label className="field"><span>Reemplazar imágenes</span><input name="imagenes" type="file" accept="image/jpeg,image/png,image/webp" multiple
