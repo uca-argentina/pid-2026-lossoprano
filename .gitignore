@@ -1,0 +1,6 @@
+# Archivos del sistema y cachés de compilación
+.DS_Store
+*.tsbuildinfo
+
+# Guía local del proyecto
+/project_guidelines.md

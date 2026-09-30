@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const ts = require('typescript');
 
 // Ejecuta el hook real con almacenamiento, reloj y respuestas de API controlados.
-function carritoPrueba(guardado, versiones) {
+function carritoPrueba(guardado, versiones, idNegocio = 1) {
   const estados = [], efectos = [], pendientes = [], intervalos = new Set();
   const almacenamiento = new Map(guardado ? [['bulkmarket-carrito-1', JSON.stringify(guardado)]] : []);
   let indice = 0;
@@ -44,7 +44,7 @@ function carritoPrueba(guardado, versiones) {
   });
   function render() {
     indice = 0;
-    const hook = exports.useCarrito(1, 'token');
+    const hook = exports.useCarrito(1, 'token', idNegocio);
     pendientes.splice(0).forEach(callback => callback());
     return hook;
   }
@@ -53,6 +53,20 @@ function carritoPrueba(guardado, versiones) {
 
 const producto = { idProducto: 3, idNegocio: 2, version: 1, nombre: 'Producto', precioBase: '10.00', stock: 5, imagenes: [] };
 const esperar = () => new Promise(resolve => setImmediate(resolve));
+
+test('no permite agregar productos del negocio propio', () => {
+  const prueba = carritoPrueba(null, new Map([[3, 1]]), 2);
+  prueba.render().agregar(producto, 1);
+  const hook = prueba.render();
+  assert.equal(hook.carrito, null);
+  assert.match(hook.avisoCarrito, /propio negocio/);
+});
+
+test('descarta carritos guardados del negocio propio', () => {
+  const prueba = carritoPrueba({ idNegocio: 2, nombreNegocio: 'Propio', items: [{ ...producto, cantidad: 1 }] }, new Map([[3, 1]]), 2);
+  assert.equal(prueba.render().carrito, null);
+  assert.equal(prueba.almacenamiento.has('bulkmarket-carrito-1'), false);
+});
 
 test('agregar y editar cantidades respeta stock y cantidades enteras', async () => {
   const prueba = carritoPrueba(null, new Map([[3, 1]]));

@@ -36,12 +36,13 @@ test('editar y borrar rechazan productos de otro negocio o inexistentes', async 
 
 test('el carrito conserva solamente productos existentes con la misma versión', async () => {
   const service = new ProductosService({ findBy: async () => [
-    { idProducto: 1, version: 2 }, { idProducto: 2, version: 3 },
+    { idProducto: 1, idNegocio: 7, version: 2 }, { idProducto: 2, idNegocio: 7, version: 3 },
   ] });
   assert.deepEqual(await service.validarCarrito({ items: [
     { idProducto: 1, version: 2 }, { idProducto: 2, version: 2 }, { idProducto: 3, version: 1 },
-  ] }), [1]);
-  assert.deepEqual(await service.validarCarrito({ items: [] }), []);
+  ] }, 9), [1]);
+  assert.deepEqual(await service.validarCarrito({ items: [{ idProducto: 1, version: 2 }] }, 7), []);
+  assert.deepEqual(await service.validarCarrito({ items: [] }, 9), []);
 });
 
 test('los endpoints de edición y borrado requieren rol vendedor', () => {

@@ -309,16 +309,6 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
           >
             Perfil
           </button>
-          {esComprador && (
-            <button
-              type="button"
-              className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
-              aria-current={seccion === 'explorar' ? 'page' : undefined}
-              onClick={() => handleTabClick('explorar')}
-            >
-              Explorar
-            </button>
-          )}
           {!esComprador && (
             <button
               type="button"
@@ -329,6 +319,14 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               Mis Productos
             </button>
           )}
+          <button
+            type="button"
+            className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
+            aria-current={seccion === 'explorar' ? 'page' : undefined}
+            onClick={() => handleTabClick('explorar')}
+          >
+            Explorar
+          </button>
         </nav>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
@@ -342,7 +340,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
       </header>
       {seccion === 'explorar' && (
         <div key={`explorar-${refreshKey}`}>
-          <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} />
+          <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} idNegocio={sesion.negocio.idNegocio} />
         </div>
       )}
       {seccion === 'perfil' && (

@@ -70,8 +70,8 @@ export class ProductosController {
   }
 
   @Post('carrito/validar')
-  validarCarrito(@Body() dto: ValidarCarritoDto) {
-    return this.productos.validarCarrito(dto);
+  validarCarrito(@Body() dto: ValidarCarritoDto, @Request() request: { user: { idNegocio: number } }) {
+    return this.productos.validarCarrito(dto, request.user.idNegocio);
   }
 
   @Patch(':id')

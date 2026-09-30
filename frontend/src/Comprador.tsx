@@ -10,7 +10,7 @@ function limitarCantidad(cantidad: number, stock: number) {
   return Math.max(1, Math.min(stock, Number.isFinite(cantidad) ? Math.trunc(cantidad) : 1));
 }
 
-function useCarrito(idCliente: number, token: string) {
+function useCarrito(idCliente: number, token: string, idNegocio: number) {
   const clave = `bulkmarket-carrito-${idCliente}`;
   const [avisoCarrito, setAvisoCarrito] = useState('');
   const [carrito, setCarrito] = useState<Carrito>(() => {
@@ -18,7 +18,7 @@ function useCarrito(idCliente: number, token: string) {
     if (!valor) return null;
     try {
       const guardado: Carrito = JSON.parse(valor);
-      if (!guardado || !Array.isArray(guardado.items)) return null;
+      if (!guardado || guardado.idNegocio === idNegocio || !Array.isArray(guardado.items)) return null;
       const items = guardado.items
         .map(item => ({ ...item, cantidad: limitarCantidad(item.cantidad, item.stock) }))
         .filter(item => item.cantidad > 0 && Number.isInteger(item.version) && item.version > 0);
@@ -72,6 +72,10 @@ function useCarrito(idCliente: number, token: string) {
   }, [carrito, token]);
 
   function agregar(producto: Producto, cantidad: number) {
+    if (producto.idNegocio === idNegocio) {
+      setAvisoCarrito('No podés comprar productos de tu propio negocio.');
+      return;
+    }
     const cantidadPermitida = limitarCantidad(cantidad, producto.stock);
     if (cantidadPermitida === 0) return;
     if (carrito && carrito.idNegocio !== producto.idNegocio) {
@@ -138,7 +142,7 @@ function useCarrito(idCliente: number, token: string) {
   return { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar };
 }
 
-export default function PanelComprador({ token, idCliente }: { token: string; idCliente: number }) {
+export default function PanelComprador({ token, idCliente, idNegocio }: { token: string; idCliente: number; idNegocio: number }) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [todosLosProductos, setTodosLosProductos] = useState<Producto[]>([]);
   const [q, setQ] = useState('');
@@ -147,7 +151,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState<Producto | null>(null);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente, token);
+  const { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente, token, idNegocio);
 
   async function buscar(evento?: FormEvent) {
     evento?.preventDefault();
@@ -227,7 +231,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
         ))}
       </div>
 
-      {detalle && <DetalleProducto producto={detalle} alCerrar={() => setDetalle(null)} alAgregar={(cantidad) => { agregar(detalle, cantidad); setDetalle(null); setCarritoAbierto(true); }} />}
+      {detalle && <DetalleProducto producto={detalle} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={(cantidad) => { agregar(detalle, cantidad); setDetalle(null); setCarritoAbierto(true); }} />}
 
       {carritoAbierto && (
         <div className="overlay" onClick={() => setCarritoAbierto(false)}>
@@ -276,7 +280,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   );
 }
 
-function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
+function DetalleProducto({ producto, esPropio, alCerrar, alAgregar }: { producto: Producto; esPropio: boolean; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
   const [cantidad, setCantidad] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -351,14 +355,15 @@ function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto
               min={1}
               step={1}
               max={producto.stock}
-              disabled={producto.stock === 0}
+              disabled={esPropio || producto.stock === 0}
               value={cantidad}
               onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock))}
             />
-            <button type="button" className="primary" disabled={producto.stock === 0} onClick={() => alAgregar(cantidad)}>
+            <button type="button" className="primary" disabled={esPropio || producto.stock === 0} onClick={() => alAgregar(cantidad)}>
               Agregar al carrito
             </button>
           </div>
+          {esPropio && <p className="muted">Este producto pertenece a tu negocio. No podés agregarlo al carrito.</p>}
         </div>
       </div>
     </div>

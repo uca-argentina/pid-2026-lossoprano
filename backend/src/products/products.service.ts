@@ -80,10 +80,10 @@ export class ProductosService {
     return { mensaje: 'Producto eliminado correctamente.' };
   }
 
-  async validarCarrito(dto: ValidarCarritoDto) {
+  async validarCarrito(dto: ValidarCarritoDto, idNegocioComprador: number) {
     if (!dto.items.length) return [];
     const productos = await this.productos.findBy({ idProducto: In(dto.items.map(item => item.idProducto)) });
-    return productos.filter(producto => dto.items.some(item =>
+    return productos.filter(producto => producto.idNegocio !== idNegocioComprador && dto.items.some(item =>
       item.idProducto === producto.idProducto && item.version === producto.version,
     )).map(producto => producto.idProducto);
   }
