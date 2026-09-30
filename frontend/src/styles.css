@@ -23,6 +23,7 @@
 .explorar-header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:24px}
 .carrito-boton{position:relative;border:1px solid #ced7ce;border-radius:7px;background:#fff;padding:11px 16px;font-weight:700;color:#18352c}
 .carrito-badge{position:absolute;top:-8px;right:-8px;background:#52724b;color:#fff;font-size:11px;font-weight:700;border-radius:99px;padding:2px 7px}
+.navbar-carrito{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px}
 .buscador{display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap}
 .buscador{max-width:none}
 .buscador input{flex:2;min-width:200px;border:1px solid #ced7ce;border-radius:7px;padding:12px 13px}
@@ -120,9 +121,9 @@
 }
 .navbar-tabs{gap:18px}
 @media(max-width:480px){
-  .navbar{height:64px;min-height:64px;flex-wrap:nowrap;padding:0 12px;gap:12px}
-  .navbar-tabs{min-width:0;gap:12px}
-  .nav-tab{min-height:44px;padding:0 6px;font-size:12px;white-space:nowrap}
+  .navbar{height:64px;min-height:64px;flex-wrap:nowrap;padding:0 12px;gap:8px}
+  .navbar-tabs{min-width:0;gap:8px}
+  .nav-tab{min-height:44px;padding:0 5px;font-size:12px;white-space:nowrap}
   .navbar-actions{flex-wrap:nowrap;flex-shrink:0;margin-left:auto;gap:0}
   .navbar-actions .role-badge{display:none}
   .logout{display:grid;place-items:center;width:44px;height:44px;padding:0}
@@ -132,6 +133,18 @@
 }
 @media(max-width:760px){.detalle-panel{grid-template-columns:1fr}.carrito-panel{border-radius:0}}
 @media(max-width:760px){.brand-name{display:none}.brand{flex-shrink:0}}
+@media(max-width:760px){
+  .navbar-actions .role-badge,.carrito-text,.logout-text{display:none}
+  .navbar-carrito,.logout{display:flex;align-items:center;justify-content:center;width:44px;height:44px;padding:0;flex-shrink:0}
+  .logout-icon{display:block}
+  .navbar-actions{gap:4px}
+  .navbar-carrito .carrito-badge{top:0;right:0;font-size:10px;padding:1px 4px}
+}
+@media(max-width:359px){
+  .navbar{padding:0 8px;gap:4px}
+  .navbar-tabs{gap:2px}
+  .nav-tab{padding:0 4px;font-size:11px}
+}
 @media(max-width:760px){
   .producto-grilla{grid-template-columns:1fr;gap:12px}
   .producto-card{min-width:0;padding:10px;gap:6px}

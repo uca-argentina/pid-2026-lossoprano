@@ -2,21 +2,28 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, ASSET_URL, Negocio, Producto } from './api';
 import { formatCurrency } from './utils';
 
-import useCarrito, { limitarCantidad } from './useCarrito';
+import { limitarCantidad } from './useCarrito';
+import type useCarrito from './useCarrito';
 
-export default function PanelComprador({ token, idCliente, idNegocio }: { token: string; idCliente: number; idNegocio: number }) {
+export default function PanelComprador({ token, idNegocio, estadoCarrito, abrirCarrito }: {
+  token: string; idNegocio: number; estadoCarrito: ReturnType<typeof useCarrito>; abrirCarrito: () => void;
+}) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<string[]>([]);
   const [vendedores, setVendedores] = useState<Pick<Negocio, 'idNegocio' | 'nombreComercial'>[]>([]);
-  const [vendedor, setVendedor] = useState('');
+  const [vendedor, setVendedor] = useState(() => estadoCarrito.carrito ? String(estadoCarrito.carrito.idNegocio) : '');
   const busquedaActual = useRef(0);
   const [q, setQ] = useState('');
   const [categoria, setCategoria] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState<Producto | null>(null);
-  const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente, token, idNegocio);
+  const { avisoCarrito, agregar } = estadoCarrito;
+  const vendedorCarrito = estadoCarrito.carrito?.idNegocio;
+
+  useEffect(() => {
+    setVendedor(vendedorCarrito ? String(vendedorCarrito) : '');
+  }, [vendedorCarrito]);
 
   async function buscar(evento?: FormEvent) {
     evento?.preventDefault();
@@ -58,8 +65,6 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
     return () => { activo = false; };
   }, [token]);
 
-  const totalItemsCarrito = carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
-  const subtotalCarrito = carrito?.subtotal ?? '0.00';
 
   return (
     <section className="explorar">
@@ -68,9 +73,6 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
           <h2>Explorar catálogo</h2>
           <p className="muted">Buscá productos y filtrá por vendedor para armar tu pedido.</p>
         </div>
-        <button type="button" className="carrito-boton" onClick={() => setCarritoAbierto(true)}>
-          🛒 Carrito{totalItemsCarrito > 0 && <span className="carrito-badge">{totalItemsCarrito}</span>}
-        </button>
       </div>
 
       <form className="buscador" onSubmit={buscar}>
@@ -109,59 +111,8 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
         ))}
       </div>
 
-      {detalle && <DetalleProducto producto={detalle} mensaje={avisoCarrito} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={async (cantidad) => { if (await agregar(detalle, cantidad)) { setDetalle(null); setCarritoAbierto(true); } }} />}
+      {detalle && <DetalleProducto producto={detalle} mensaje={avisoCarrito} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={async (cantidad) => { if (await agregar(detalle, cantidad)) { setVendedor(String(detalle.idNegocio)); setDetalle(null); abrirCarrito(); } }} />}
 
-      {carritoAbierto && (
-        <div className="overlay" onClick={() => setCarritoAbierto(false)}>
-          <aside className="carrito-panel" onClick={evento => evento.stopPropagation()}>
-            <header>
-              <h2>Tu carrito</h2>
-              <button type="button" className="link" onClick={() => setCarritoAbierto(false)}>Cerrar</button>
-            </header>
-            {avisoCarrito && <p className="muted" role="status">{avisoCarrito}</p>}
-            {!carrito || carrito.items.length === 0 ? (
-              <p className="muted">Todavía no agregaste productos.</p>
-            ) : (
-              <>
-                <p className="muted">Vendedor: <b>{carrito.nombreNegocio}</b></p>
-                <ul className="carrito-items">
-                  {carrito.items.map(item => (
-                    <li key={item.idProducto}>
-                      {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
-                      <div className="carrito-item-info">
-                        <b>{item.nombre}</b>
-                        <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
-                        {item.cantidadMinimaCompra && <small>Mínimo: {item.cantidadMinimaCompra} unidades</small>}
-                      </div>
-                      <input
-                        type="number"
-                        min={item.cantidadMinimaCompra ?? 1}
-                        step={1}
-                        max={item.stock}
-                        value={item.cantidad}
-                        onChange={evento => actualizarCantidad(item.idProducto, evento.target.valueAsNumber)}
-                      />
-                      <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="carrito-subtotal">
-                  <span>Subtotal</span>
-                  <b>{formatCurrency(subtotalCarrito)}</b>
-                </div>
-                <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
-                {Number(carrito.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo del vendedor: {formatCurrency(carrito.montoMinimoOrden)}.</p>}
-                <p className={carrito.cumpleMinimos ? 'success' : 'muted'} role="status">
-                  {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.`}
-                </p>
-                <button type="button" className="primary" disabled={!carrito.cumpleMinimos}>
-                  Finalizar compra
-                </button>
-              </>
-            )}
-          </aside>
-        </div>
-      )}
     </section>
   );
 }
