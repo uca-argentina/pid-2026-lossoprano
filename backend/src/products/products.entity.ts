@@ -1,10 +1,13 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, VersionColumn } from 'typeorm';
 import { Negocio } from '../business/business.entity';
 
 @Entity('producto')
 export class Producto {
   @PrimaryGeneratedColumn({ name: 'id_producto' })
   idProducto: number;
+
+  @VersionColumn()
+  version: number;
 
   @ManyToOne(() => Negocio, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_negocio' })

@@ -1,7 +1,7 @@
 import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { Repository } from 'typeorm';
+import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Negocio } from '../business/business.entity';
 import { Cliente } from '../users/user.entity';
@@ -14,6 +14,7 @@ export class AuthService {
     @InjectRepository(Cliente) private readonly clientes: Repository<Cliente>,
     @InjectRepository(Negocio) private readonly negocios: Repository<Negocio>,
     private readonly jwt: JwtService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async registrar(dto: RegistroDto) {
@@ -30,16 +31,28 @@ export class AuthService {
         throw new ConflictException('Ya existe un negocio con esa identificación fiscal.');
     }
 
-    const negocio = await this.negocios.save(this.negocios.create(dto.negocio));
-    const cliente = await this.clientes.save(this.clientes.create({
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    try {
+      return await this.dataSource.transaction(async manager => {
+        const negocios = manager.getRepository(Negocio);
+        const clientes = manager.getRepository(Cliente);
+        const negocio = await negocios.save(negocios.create(dto.negocio));
+        const cliente = await clientes.save(clientes.create({
         email: dto.email.toLowerCase(),
-        passwordHash: await bcrypt.hash(dto.password, 12),
+        passwordHash,
         rol: dto.rol,
         idNegocio: negocio.idNegocio,
-    }));
+        }));
 
-    return this.crearSesion(cliente, negocio);
-}
+        return this.crearSesion(cliente, negocio);
+      });
+    } catch (error) {
+      if (error instanceof QueryFailedError && error.driverError.code === '23505') {
+        throw new ConflictException('Ya existe una cuenta con ese correo electrónico o un negocio con esa identificación fiscal.');
+      }
+      throw error;
+    }
+  }
 
   async iniciarSesion(dto: LoginDto) {
     const cliente = await this.clientes.createQueryBuilder('cliente')

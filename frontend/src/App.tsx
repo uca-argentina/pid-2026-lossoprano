@@ -36,7 +36,7 @@ function App() {
         </main>;
 }
 
-function Marca() { return <div className="brand"><span className="brand-mark">B</span><span>bulk<span>market</span></span></div>; }
+function Marca() { return <div className="brand" role="img" aria-label="Bulkmarket"><span className="brand-mark" aria-hidden="true">B</span><span className="brand-name" aria-hidden="true">bulk<span>market</span></span></div>; }
 
 function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) => void; alRegistrarse: () => void }) {
   const [email, setEmail] = useState('');
@@ -96,6 +96,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   const [rol, setRol] = useState<Rol>('COMPRADOR');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmacionPassword, setConfirmacionPassword] = useState('');
   const [negocio, setNegocio] = useState(negocioInicial);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -106,6 +107,10 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setError('');
+    if (password !== confirmacionPassword) {
+      setError('Las contraseñas no coinciden. Volvé a escribirlas.');
+      return;
+    }
     setCargando(true);
     try {
       await alRegistrarse(await api.registrar({ email, password, rol, negocio }));
@@ -206,6 +211,13 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
         hint="Mínimo 8 caracteres"
         requerido
       />
+      <Campo
+        etiqueta="Repetir contraseña"
+        tipo="password"
+        valor={confirmacionPassword}
+        alCambiar={setConfirmacionPassword}
+        requerido
+      />
       <ErrorFormulario error={error} />
       <button
         className="primary"
@@ -297,16 +309,6 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
           >
             Perfil
           </button>
-          {esComprador && (
-            <button
-              type="button"
-              className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
-              aria-current={seccion === 'explorar' ? 'page' : undefined}
-              onClick={() => handleTabClick('explorar')}
-            >
-              Explorar
-            </button>
-          )}
           {!esComprador && (
             <button
               type="button"
@@ -317,15 +319,28 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               Mis Productos
             </button>
           )}
+          <button
+            type="button"
+            className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
+            aria-current={seccion === 'explorar' ? 'page' : undefined}
+            onClick={() => handleTabClick('explorar')}
+          >
+            Explorar
+          </button>
         </nav>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
-          <button className="logout" onClick={cerrarSesion}>Cerrar sesión</button>
+          <button type="button" className="logout" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={cerrarSesion}>
+            <span className="logout-text">Cerrar sesión</span>
+            <svg className="logout-icon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H5v14h4M14 8l4 4-4 4M9 12h9" />
+            </svg>
+          </button>
         </div>
       </header>
       {seccion === 'explorar' && (
         <div key={`explorar-${refreshKey}`}>
-          <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} />
+          <Comprador token={sesion.accessToken} idCliente={sesion.cliente.idCliente} idNegocio={sesion.negocio.idNegocio} />
         </div>
       )}
       {seccion === 'perfil' && (
@@ -438,7 +453,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
 function soloDigitos(valor: string, maximoDigitos: number) { return valor.replace(/\D/g, '').slice(0, maximoDigitos); }
 function formatearCuit(valor: string) { const digitos = soloDigitos(valor, 11); if (digitos.length <= 2) return digitos; if (digitos.length <= 10) return `${digitos.slice(0, 2)}-${digitos.slice(2)}`; return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`; }
 function formatearTelefono(valor: string) { const digitos = soloDigitos(valor, 10); if (digitos.length <= 2) return digitos; if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`; return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)}-${digitos.slice(6)}`; }
-function Campo({ etiqueta, valor, alCambiar, tipo = 'text', hint, soloNumeros = false, maximoDigitos, formatear, minDigitos, exactDigitos, ...props }: { etiqueta: string; valor: string; alCambiar: (valor: string) => void; tipo?: string; hint?: string; soloNumeros?: boolean; maximoDigitos?: number; formatear?: (valor: string) => string; placeholder?: string; requerido?: boolean; inputMode?: 'numeric'; maxLength?: number; pattern?: string; title?: string; minDigitos?: number; exactDigitos?: number }) {
+function Campo({ etiqueta, valor, alCambiar, tipo = 'text', hint, requerido = false, soloNumeros = false, maximoDigitos, formatear, minDigitos, exactDigitos, ...props }: { etiqueta: string; valor: string; alCambiar: (valor: string) => void; tipo?: string; hint?: string; soloNumeros?: boolean; maximoDigitos?: number; formatear?: (valor: string) => string; placeholder?: string; requerido?: boolean; inputMode?: 'numeric'; maxLength?: number; pattern?: string; title?: string; minDigitos?: number; exactDigitos?: number }) {
   const valorVisible = formatear ? formatear(valor) : valor;
   const patron = props.pattern?.split('\\\\').join('\\');
   return <label className="field"><span>{etiqueta}</span><input type={tipo} value={valorVisible} onChange={(evento) => {
@@ -454,6 +469,6 @@ function Campo({ etiqueta, valor, alCambiar, tipo = 'text', hint, soloNumeros = 
     } else {
       alCambiar(input);
     }
-  }} {...props} pattern={patron} />{hint && <small>{hint}</small>}</label>; }
+  }} {...props} required={requerido} pattern={patron} />{hint && <small>{hint}</small>}</label>; }
 function ErrorFormulario({ error }: { error: string }) { return error ? <p className="error" role="alert">{error}</p> : null; }
 export default App;

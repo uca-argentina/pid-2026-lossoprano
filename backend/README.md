@@ -10,6 +10,10 @@ API de BulkMarket para autenticación JWT y administración del negocio asociado
 
 La API queda disponible en `http://localhost:3000/api`.
 
+En desarrollo, TypeORM agrega automáticamente la columna `producto.version` al iniciar la API. Para una base de producción, aplicar `migrations/001-product-version.sql` antes de desplegar esta versión.
+
+Los vendedores pueden editar sus productos con `PATCH /productos/:id` (multipart, mismos campos que al crear; imágenes opcionales que reemplazan todas las actuales) y eliminarlos con `DELETE /productos/:id`. Cada actualización incrementa la versión del producto. `POST /productos/carrito/validar` recibe `{ items: [{ idProducto, version }] }` y devuelve los IDs que siguen vigentes. El frontend valida los carritos locales al cargarlos, al recuperar el foco y cada 10 segundos; si no hay conexión, reintenta cuando la API vuelve a estar disponible. Los carritos antiguos sin versión se descartan.
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/auth/registro` | Registra cliente y negocio. Roles: `COMPRADOR`, `VENDEDOR`. |

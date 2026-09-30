@@ -2,14 +2,30 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import { formatCurrency } from './utils';
 
-type ItemCarrito = { idProducto: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
+type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
 type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[] } | null;
 
-function useCarrito(idCliente: number) {
+function limitarCantidad(cantidad: number, stock: number) {
+  if (!Number.isInteger(stock) || stock <= 0) return 0;
+  return Math.max(1, Math.min(stock, Number.isFinite(cantidad) ? Math.trunc(cantidad) : 1));
+}
+
+function useCarrito(idCliente: number, token: string, idNegocio: number) {
   const clave = `bulkmarket-carrito-${idCliente}`;
+  const [avisoCarrito, setAvisoCarrito] = useState('');
   const [carrito, setCarrito] = useState<Carrito>(() => {
     const valor = localStorage.getItem(clave);
-    return valor ? JSON.parse(valor) : null;
+    if (!valor) return null;
+    try {
+      const guardado: Carrito = JSON.parse(valor);
+      if (!guardado || guardado.idNegocio === idNegocio || !Array.isArray(guardado.items)) return null;
+      const items = guardado.items
+        .map(item => ({ ...item, cantidad: limitarCantidad(item.cantidad, item.stock) }))
+        .filter(item => item.cantidad > 0 && Number.isInteger(item.version) && item.version > 0);
+      return items.length ? { ...guardado, items } : null;
+    } catch {
+      return null;
+    }
   });
 
   useEffect(() => {
@@ -17,7 +33,51 @@ function useCarrito(idCliente: number) {
     else localStorage.removeItem(clave);
   }, [carrito, clave]);
 
+  useEffect(() => {
+    if (!carrito) return;
+    let cancelado = false;
+    let validando = false;
+    const itemsConsultados = carrito.items;
+    async function validar() {
+      if (validando) return;
+      validando = true;
+      try {
+        const validos = new Set(await api.validarCarrito(itemsConsultados, token));
+        if (cancelado) return;
+        if (itemsConsultados.some(item => !validos.has(item.idProducto))) {
+          setAvisoCarrito('Se quitaron de tu carrito productos que el vendedor modificó o eliminó.');
+        }
+        setCarrito(actual => {
+          if (!actual) return actual;
+          const items = actual.items.filter(item => !itemsConsultados.some(consultado =>
+            consultado.idProducto === item.idProducto && consultado.version === item.version,
+          ) || validos.has(item.idProducto));
+          if (items.length === actual.items.length) return actual;
+          return items.length ? { ...actual, items } : null;
+        });
+      } catch {
+        // Conservamos el carrito si la API no está disponible y reintentamos.
+      } finally {
+        validando = false;
+      }
+    }
+    void validar();
+    const intervalo = window.setInterval(validar, 10000);
+    window.addEventListener('focus', validar);
+    return () => {
+      cancelado = true;
+      window.clearInterval(intervalo);
+      window.removeEventListener('focus', validar);
+    };
+  }, [carrito, token]);
+
   function agregar(producto: Producto, cantidad: number) {
+    if (producto.idNegocio === idNegocio) {
+      setAvisoCarrito('No podés comprar productos de tu propio negocio.');
+      return;
+    }
+    const cantidadPermitida = limitarCantidad(cantidad, producto.stock);
+    if (cantidadPermitida === 0) return;
     if (carrito && carrito.idNegocio !== producto.idNegocio) {
       const confirmado = window.confirm(
         `Tu carrito tiene productos de ${carrito.nombreNegocio}. Solo podés comprarle a un vendedor por vez.\n\n¿Vaciar el carrito y agregar este producto de ${producto.negocio?.nombreComercial ?? 'otra marca'}?`,
@@ -32,14 +92,23 @@ function useCarrito(idCliente: number) {
           : { idNegocio: producto.idNegocio, nombreNegocio: producto.negocio?.nombreComercial ?? 'Vendedor', items: [] };
       const existente = base!.items.find(item => item.idProducto === producto.idProducto);
       const items = existente
-        ? base!.items.map(item => (item.idProducto === producto.idProducto ? { ...item, cantidad: item.cantidad + cantidad } : item))
+        ? base!.items.map(item => (item.idProducto === producto.idProducto ? {
+            ...item,
+            nombre: producto.nombre,
+            precioBase: producto.precioBase,
+            imagen: producto.imagenes[0],
+            version: producto.version,
+            stock: producto.stock,
+            cantidad: limitarCantidad((item.version === producto.version ? item.cantidad : 0) + cantidadPermitida, producto.stock),
+          } : item))
         : [
             ...base!.items,
             {
               idProducto: producto.idProducto,
+              version: producto.version,
               nombre: producto.nombre,
               precioBase: producto.precioBase,
-              cantidad,
+              cantidad: cantidadPermitida,
               stock: producto.stock,
               imagen: producto.imagenes[0],
             },
@@ -51,8 +120,10 @@ function useCarrito(idCliente: number) {
   function actualizarCantidad(idProducto: number, cantidad: number) {
     setCarrito(actual => {
       if (!actual) return actual;
-      const items = actual.items.map(item => (item.idProducto === idProducto ? { ...item, cantidad } : item));
-      return { ...actual, items };
+      const items = actual.items
+        .map(item => (item.idProducto === idProducto ? { ...item, cantidad: limitarCantidad(cantidad, item.stock) } : item))
+        .filter(item => item.cantidad > 0);
+      return items.length ? { ...actual, items } : null;
     });
   }
 
@@ -68,10 +139,10 @@ function useCarrito(idCliente: number) {
     setCarrito(null);
   }
 
-  return { carrito, agregar, actualizarCantidad, quitar, vaciar };
+  return { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar };
 }
 
-export default function PanelComprador({ token, idCliente }: { token: string; idCliente: number }) {
+export default function PanelComprador({ token, idCliente, idNegocio }: { token: string; idCliente: number; idNegocio: number }) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [todosLosProductos, setTodosLosProductos] = useState<Producto[]>([]);
   const [q, setQ] = useState('');
@@ -80,7 +151,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState<Producto | null>(null);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const { carrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente);
+  const { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar } = useCarrito(idCliente, token, idNegocio);
 
   async function buscar(evento?: FormEvent) {
     evento?.preventDefault();
@@ -141,6 +212,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
       </form>
 
       {error && <p className="error" role="alert">{error}</p>}
+      {avisoCarrito && <p className="muted" role="status">{avisoCarrito}</p>}
       {cargando && <p className="muted">Buscando…</p>}
       {!cargando && productos.length === 0 && <p className="muted">No encontramos productos con esos criterios.</p>}
 
@@ -159,7 +231,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
         ))}
       </div>
 
-      {detalle && <DetalleProducto producto={detalle} alCerrar={() => setDetalle(null)} alAgregar={(cantidad) => { agregar(detalle, cantidad); setDetalle(null); setCarritoAbierto(true); }} />}
+      {detalle && <DetalleProducto producto={detalle} esPropio={detalle.idNegocio === idNegocio} alCerrar={() => setDetalle(null)} alAgregar={(cantidad) => { agregar(detalle, cantidad); setDetalle(null); setCarritoAbierto(true); }} />}
 
       {carritoAbierto && (
         <div className="overlay" onClick={() => setCarritoAbierto(false)}>
@@ -168,6 +240,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
               <h2>Tu carrito</h2>
               <button type="button" className="link" onClick={() => setCarritoAbierto(false)}>Cerrar</button>
             </header>
+            {avisoCarrito && <p className="muted" role="status">{avisoCarrito}</p>}
             {!carrito || carrito.items.length === 0 ? (
               <p className="muted">Todavía no agregaste productos.</p>
             ) : (
@@ -184,9 +257,10 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
                       <input
                         type="number"
                         min={1}
+                        step={1}
                         max={item.stock}
                         value={item.cantidad}
-                        onChange={evento => actualizarCantidad(item.idProducto, Math.max(1, Math.min(item.stock, Number(evento.target.value))))}
+                        onChange={evento => actualizarCantidad(item.idProducto, evento.target.valueAsNumber)}
                       />
                       <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
                     </li>
@@ -206,7 +280,7 @@ export default function PanelComprador({ token, idCliente }: { token: string; id
   );
 }
 
-function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
+function DetalleProducto({ producto, esPropio, alCerrar, alAgregar }: { producto: Producto; esPropio: boolean; alCerrar: () => void; alAgregar: (cantidad: number) => void }) {
   const [cantidad, setCantidad] = useState(1);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -279,14 +353,17 @@ function DetalleProducto({ producto, alCerrar, alAgregar }: { producto: Producto
             <input
               type="number"
               min={1}
+              step={1}
               max={producto.stock}
+              disabled={esPropio || producto.stock === 0}
               value={cantidad}
-              onChange={evento => setCantidad(Math.max(1, Math.min(producto.stock, Number(evento.target.value))))}
+              onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock))}
             />
-            <button type="button" className="primary" disabled={producto.stock === 0} onClick={() => alAgregar(cantidad)}>
+            <button type="button" className="primary" disabled={esPropio || producto.stock === 0} onClick={() => alAgregar(cantidad)}>
               Agregar al carrito
             </button>
           </div>
+          {esPropio && <p className="muted">Este producto pertenece a tu negocio. No podés agregarlo al carrito.</p>}
         </div>
       </div>
     </div>
