@@ -254,7 +254,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
 
   const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
     const { idNegocio, ...datos } = sesion.negocio;
-    return { ...datos, identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
+    return { ...datos, montoMinimoOrden: datos.montoMinimoOrden ?? '0.00', identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
   });
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
@@ -269,7 +269,8 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
     setCargando(true);
     setError('');
     try {
-      const actualizado = await api.actualizarNegocio(negocio, sesion.accessToken);
+      const { montoMinimoOrden, ...datos } = negocio;
+      const actualizado = await api.actualizarNegocio(esComprador ? datos : negocio, sesion.accessToken);
       guardarSesion({ ...sesion, negocio: actualizado });
       setMensaje('Los datos del negocio se actualizaron correctamente.');
     } catch (error) {
@@ -407,6 +408,12 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
                     />
                   </div>
                 </div>
+                {!esComprador && <label className="field">
+                  <span>Monto mínimo por pedido</span>
+                  <input type="number" min="0" max="9999999999.99" step="0.01" required
+                    value={negocio.montoMinimoOrden ?? '0.00'} onChange={evento => actualizar('montoMinimoOrden')(evento.target.value)} />
+                  <small>Importe mínimo del pedido en dinero. Usá 0 si no exigís un mínimo.</small>
+                </label>}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}
                 <button

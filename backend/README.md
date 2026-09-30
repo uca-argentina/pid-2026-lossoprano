@@ -18,6 +18,8 @@ Los carritos se guardan en PostgreSQL por cuenta. `GET /carrito` obtiene el carr
 
 Verificación: `npm run test:products` y `npm run test:cart:integration` (requiere PostgreSQL del compose, o `TEST_DATABASE_URL`). La prueba de integración usa tablas temporales dentro de una transacción que revierte; no modifica datos existentes.
 
+Mínimos mayoristas: `montoMinimoOrden` se configura con `PATCH /negocios/mi-negocio` solo para vendedores; 0 indica sin mínimo. `cantidadMinimaCompra` es opcional en los productos (vacío/null permite comprar desde 1 unidad). El carrito devuelve `subtotal`, `montoMinimoOrden`, `faltanteMinimo` y `cumpleMinimos`. Puede guardarse por debajo del monto requerido para armarlo progresivamente, pero la API rechaza cantidades por debajo del mínimo del producto. Cambiar el monto no vacía carritos; editar un producto sí lo retira. Para producción aplicar también `migrations/003-order-minimums.sql`; en desarrollo basta reiniciar la API para sincronizar las nuevas columnas.
+
 | Método | Ruta | Descripción |
 | --- | --- | --- |
 | POST | `/auth/registro` | Registra cliente y negocio. Roles: `COMPRADOR`, `VENDEDOR`. |

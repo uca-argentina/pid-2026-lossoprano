@@ -31,6 +31,9 @@ export class Producto {
   @Column('int')
   stock: number;
 
+  @Column({ name: 'cantidad_minima_compra', type: 'int', nullable: true })
+  cantidadMinimaCompra: number | null;
+
   @Column('text', { array: true })
   imagenes: string[];
 }

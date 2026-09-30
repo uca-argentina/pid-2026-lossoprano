@@ -18,9 +18,9 @@ test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', a
   await runner.connect();
   await runner.startTransaction();
   try {
-    await runner.query('CREATE TEMP TABLE negocio (id_negocio serial PRIMARY KEY, razon_social varchar(150), nombre_comercial varchar(150), identificacion_fiscal varchar(50), telefono varchar(40), direccion varchar(255))');
+    await runner.query('CREATE TEMP TABLE negocio (id_negocio serial PRIMARY KEY, razon_social varchar(150), nombre_comercial varchar(150), identificacion_fiscal varchar(50), telefono varchar(40), direccion varchar(255), monto_minimo_orden decimal(12,2) NOT NULL DEFAULT 0)');
     await runner.query('CREATE TEMP TABLE cliente (id_cliente serial PRIMARY KEY, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, email varchar(180), password_hash varchar, rol varchar(20))');
-    await runner.query('CREATE TEMP TABLE producto (id_producto serial PRIMARY KEY, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, nombre varchar(150), descripcion text, categoria varchar(100), precio_base decimal(12,2), stock integer, imagenes text[], version integer NOT NULL DEFAULT 1)');
+    await runner.query('CREATE TEMP TABLE producto (id_producto serial PRIMARY KEY, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, nombre varchar(150), descripcion text, categoria varchar(100), precio_base decimal(12,2), stock integer, cantidad_minima_compra integer, imagenes text[], version integer NOT NULL DEFAULT 1)');
     await runner.query('CREATE TEMP TABLE carrito_item (id_cliente integer REFERENCES cliente(id_cliente) ON DELETE CASCADE, id_producto integer REFERENCES producto(id_producto) ON DELETE CASCADE, cantidad integer CHECK (cantidad > 0), version integer, PRIMARY KEY(id_cliente, id_producto))');
     await runner.query("INSERT INTO negocio(id_negocio, nombre_comercial) VALUES (1, 'Comprador'), (2, 'Vendedor'), (3, 'Otro negocio')");
     await runner.query("INSERT INTO cliente(id_cliente,id_negocio,rol) VALUES (1,1,'COMPRADOR'),(2,3,'COMPRADOR'),(3,2,'VENDEDOR')");
@@ -54,6 +54,25 @@ test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', a
     await carrito.guardar(1, { items: [{ idProducto: otro.idProducto, version: otro.version, cantidad: 1 }] });
     await carrito.guardar(1, { items: [] });
     assert.equal(await carrito.obtener(1), null);
+
+    const minimoProducto = await productos.crear(2, { ...dto, cantidadMinimaCompra: 3 }, ['/minimo.png']);
+    const linea = { idProducto: minimoProducto.idProducto, version: 1, cantidad: 3 };
+    await assert.rejects(carrito.guardar(1, { items: [{ ...linea, cantidad: 2 }] }), e => e.getStatus() === 400);
+    await runner.query('UPDATE negocio SET monto_minimo_orden = 50 WHERE id_negocio = 2');
+    const incompleto = await carrito.guardar(1, { items: [linea] });
+    assert.equal(incompleto.subtotal, '30.00');
+    assert.equal(incompleto.faltanteMinimo, '20.00');
+    assert.equal(incompleto.cumpleMinimos, false);
+    const completo = await carrito.guardar(1, { items: [{ ...linea, cantidad: 5 }] });
+    assert.equal(completo.faltanteMinimo, '0.00');
+    assert.equal(completo.cumpleMinimos, true);
+    await runner.query('UPDATE negocio SET monto_minimo_orden = 60 WHERE id_negocio = 2');
+    assert.equal((await carrito.obtener(1)).faltanteMinimo, '10.00');
+    assert.equal((await carrito.obtener(1)).items.length, 1);
+    await productos.actualizar(minimoProducto.idProducto, 2, { ...dto, cantidadMinimaCompra: 4 });
+    assert.equal(await carrito.obtener(1), null);
+    const sinStock = await productos.crear(2, { ...dto, stock: 2, cantidadMinimaCompra: 3 }, ['/sin-stock.png']);
+    assert.equal(await carrito.guardar(1, { items: [{ idProducto: sinStock.idProducto, version: 1, cantidad: 3 }] }), null);
   } finally {
     await runner.rollbackTransaction();
     await runner.release();

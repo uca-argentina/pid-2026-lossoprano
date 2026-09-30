@@ -82,6 +82,7 @@ export class ProductosService {
         descripcion: dto.descripcion,
         categoria: dto.categoria,
         stock: dto.stock,
+        cantidadMinimaCompra: dto.cantidadMinimaCompra,
         precioBase: dto.precioBase.toFixed(2),
         ...(imagenes ? { imagenes } : {}),
       });

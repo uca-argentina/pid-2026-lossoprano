@@ -1,6 +1,7 @@
 export type Rol = 'COMPRADOR' | 'VENDEDOR';
 
 export type Negocio = {
+  montoMinimoOrden?: string;
   idNegocio: number;
   razonSocial: string;
   nombreComercial: string;
@@ -16,6 +17,7 @@ export type Sesion = {
 };
 
 export type Producto = {
+  cantidadMinimaCompra?: number | null;
   version: number;
   idProducto: number;
   idNegocio: number;
@@ -34,8 +36,8 @@ export type FiltrosProductos = {
   idNegocio?: number;
 };
 
-export type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; imagen?: string };
-export type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[] } | null;
+export type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; cantidadMinimaCompra?: number | null; imagen?: string };
+export type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[]; subtotal: string; montoMinimoOrden: string; faltanteMinimo: string; cumpleMinimos: boolean } | null;
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
 export const ASSET_URL = API_URL.replace(/\/api\/?$/, '');

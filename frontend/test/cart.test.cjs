@@ -154,3 +154,13 @@ test('un carrito local antiguo no reemplaza el carrito del servidor', async () =
   assert.equal(prueba.render().carrito.items[0].cantidad, 4);
   assert.equal(prueba.almacenamiento.size, 0);
 });
+
+test('agregar respeta el mínimo de unidades y bloquea stock insuficiente', async () => {
+  const prueba = carritoPrueba(null, new Map([[3, 1]]));
+  prueba.render(); await esperar();
+  await prueba.render().agregar({ ...producto, cantidadMinimaCompra: 3 }, 1);
+  assert.equal(prueba.render().carrito.items[0].cantidad, 3);
+  await prueba.render().actualizarCantidad(3, 1);
+  assert.equal(prueba.render().carrito.items[0].cantidad, 3);
+  assert.equal(await prueba.render().agregar({ ...producto, cantidadMinimaCompra: 6 }, 6), false);
+});

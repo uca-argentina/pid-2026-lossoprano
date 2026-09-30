@@ -89,6 +89,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
               <span className="muted">{producto.categoria}</span>
               <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
               <small>Stock: {producto.stock}</small>
+              {producto.cantidadMinimaCompra && <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>}
             </div>
           </article>
         ))}
@@ -122,6 +123,11 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
               <input name="stock" type="number" min="0" max="2147483647" step="1" required />
             </label>
           </div>
+          <label className="field">
+            <span>Cantidad mínima de compra (opcional)</span>
+            <input name="cantidadMinimaCompra" type="number" min="1" max="2147483647" step="1" placeholder="Sin mínimo: 1 unidad" />
+            <small>Dejá el campo vacío para permitir compras desde una unidad.</small>
+          </label>
           <label className="field">
             <span>Imágenes</span>
             <input name="imagenes" type="file" accept="image/jpeg,image/png,image/webp" multiple required

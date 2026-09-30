@@ -59,7 +59,7 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
   }, [token]);
 
   const totalItemsCarrito = carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
-  const subtotalCarrito = carrito?.items.reduce((total, item) => total + item.cantidad * Number(item.precioBase), 0) ?? 0;
+  const subtotalCarrito = carrito?.subtotal ?? '0.00';
 
   return (
     <section className="explorar">
@@ -101,6 +101,9 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
               <span className="muted">{producto.categoria}</span>
               <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
               <small>Stock: {producto.stock}</small>
+              {producto.cantidadMinimaCompra && <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>}
+              {Number(producto.negocio?.montoMinimoOrden) > 0 && <small>Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}</small>}
+              {producto.stock < (producto.cantidadMinimaCompra ?? 1) && <small>No disponible para comprar</small>}
             </div>
           </article>
         ))}
@@ -128,10 +131,11 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
                       <div className="carrito-item-info">
                         <b>{item.nombre}</b>
                         <span className="muted">{formatCurrency(item.precioBase)} c/u</span>
+                        {item.cantidadMinimaCompra && <small>Mínimo: {item.cantidadMinimaCompra} unidades</small>}
                       </div>
                       <input
                         type="number"
-                        min={1}
+                        min={item.cantidadMinimaCompra ?? 1}
                         step={1}
                         max={item.stock}
                         value={item.cantidad}
@@ -146,6 +150,10 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
                   <b>{formatCurrency(subtotalCarrito)}</b>
                 </div>
                 <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
+                {Number(carrito.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo del vendedor: {formatCurrency(carrito.montoMinimoOrden)}.</p>}
+                <p className={carrito.cumpleMinimos ? 'success' : 'muted'} role="status">
+                  {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.`}
+                </p>
               </>
             )}
           </aside>
@@ -156,7 +164,9 @@ export default function PanelComprador({ token, idCliente, idNegocio }: { token:
 }
 
 function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: { producto: Producto; mensaje: string; esPropio: boolean; alCerrar: () => void; alAgregar: (cantidad: number) => void | Promise<void> }) {
-  const [cantidad, setCantidad] = useState(1);
+  const minimo = producto.cantidadMinimaCompra ?? 1;
+  const disponible = producto.stock >= minimo;
+  const [cantidad, setCantidad] = useState(minimo);
   const [agregando, setAgregando] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -225,17 +235,20 @@ function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: {
           <p>{producto.descripcion}</p>
           <div className="producto-precio">{formatCurrency(producto.precioBase)} <small>por unidad</small></div>
           <small>Stock disponible: {producto.stock}</small>
+          {producto.cantidadMinimaCompra && <p className="muted">Cantidad mínima: {minimo} unidades.</p>}
+          {Number(producto.negocio?.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo a este vendedor: {formatCurrency(producto.negocio!.montoMinimoOrden!)}.</p>}
+          {!disponible && <p className="muted">No hay stock suficiente para comprar la cantidad mínima.</p>}
           <div className="detalle-agregar">
             <input
               type="number"
-              min={1}
+              min={minimo}
               step={1}
               max={producto.stock}
-              disabled={esPropio || producto.stock === 0}
+              disabled={esPropio || !disponible}
               value={cantidad}
-              onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock))}
+              onChange={evento => setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock, minimo))}
             />
-            <button type="button" className="primary" disabled={agregando || esPropio || producto.stock === 0} onClick={async () => {
+            <button type="button" className="primary" disabled={agregando || esPropio || !disponible} onClick={async () => {
               setAgregando(true);
               try { await alAgregar(cantidad); } finally { setAgregando(false); }
             }}>
