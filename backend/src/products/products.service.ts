@@ -5,6 +5,7 @@ import { BuscarProductosDto } from './dto/buscar-productos.dto';
 import { CrearProductoDto } from './dto/crear-producto.dto';
 import { Producto } from './products.entity';
 import { ValidarCarritoDto } from './dto/validar-carrito.dto';
+import { CarritoItem } from './cart-item.entity';
 
 @Injectable()
 export class ProductosService {
@@ -56,6 +57,17 @@ export class ProductosService {
     return filas.map(fila => fila.categoria);
   }
 
+  async listarVendedores(idNegocioActual: number) {
+    return this.productos.createQueryBuilder('producto')
+      .innerJoin('producto.negocio', 'negocio')
+      .select('negocio.idNegocio', 'idNegocio')
+      .addSelect('negocio.nombreComercial', 'nombreComercial')
+      .distinct(true)
+      .where('producto.idNegocio <> :idNegocioActual', { idNegocioActual })
+      .orderBy('negocio.nombreComercial', 'ASC')
+      .getRawMany<{ idNegocio: number; nombreComercial: string }>();
+  }
+
   async buscarUno(idProducto: number) {
     const producto = await this.productos.findOne({ where: { idProducto }, relations: { negocio: true } });
     if (!producto) throw new NotFoundException('Producto no encontrado.');
@@ -63,16 +75,20 @@ export class ProductosService {
   }
 
   async actualizar(idProducto: number, idNegocio: number, dto: CrearProductoDto, imagenes?: string[]) {
-    const resultado = await this.productos.update({ idProducto, idNegocio }, {
-      nombre: dto.nombre,
-      descripcion: dto.descripcion,
-      categoria: dto.categoria,
-      stock: dto.stock,
-      precioBase: dto.precioBase.toFixed(2),
-      ...(imagenes ? { imagenes } : {}),
+    return this.productos.manager.transaction(async manager => {
+      const repo = manager.getRepository(Producto);
+      const resultado = await repo.update({ idProducto, idNegocio }, {
+        nombre: dto.nombre,
+        descripcion: dto.descripcion,
+        categoria: dto.categoria,
+        stock: dto.stock,
+        precioBase: dto.precioBase.toFixed(2),
+        ...(imagenes ? { imagenes } : {}),
+      });
+      if (!resultado.affected) throw new NotFoundException('Producto no encontrado.');
+      await manager.getRepository(CarritoItem).delete({ idProducto });
+      return repo.findOneOrFail({ where: { idProducto }, relations: { negocio: true } });
     });
-    if (!resultado.affected) throw new NotFoundException('Producto no encontrado.');
-    return this.buscarUno(idProducto);
   }
 
   async eliminar(idProducto: number, idNegocio: number) {
