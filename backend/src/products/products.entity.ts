@@ -1,5 +1,7 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, VersionColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, VersionColumn } from 'typeorm';
 import { Negocio } from '../business/business.entity';
+import { Categoria } from '../categories/category.entity';
+import { PrecioEscalonado } from './price-tier.entity';
 
 @Entity('producto')
 export class Producto {
@@ -22,11 +24,19 @@ export class Producto {
   @Column('text')
   descripcion: string;
 
-  @Column({ length: 100 })
-  categoria: string;
+  // NO ACTION: una categoría con productos no se puede borrar.
+  @ManyToOne(() => Categoria, { eager: true, onDelete: 'NO ACTION' })
+  @JoinColumn({ name: 'id_categoria' })
+  categoria: Categoria;
+
+  @Column({ name: 'id_categoria' })
+  idCategoria: number;
 
   @Column({ name: 'precio_base', type: 'decimal', precision: 12, scale: 2 })
   precioBase: string;
+
+  @OneToMany(() => PrecioEscalonado, tramo => tramo.producto, { eager: true })
+  preciosEscalonados: PrecioEscalonado[];
 
   @Column('int')
   stock: number;
