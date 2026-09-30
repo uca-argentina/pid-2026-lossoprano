@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ASSET_URL } from './api';
-import { formatCurrency } from './utils';
+import { formatCurrency, siguienteTramo } from './utils';
 import useCarrito from './useCarrito';
 import CantidadCarrito from './CantidadCarrito';
 
@@ -28,18 +28,24 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
               <>
                 <p className="muted">Vendedor: <b>{carrito.nombreNegocio}</b></p>
                 <ul className="carrito-items">
-                  {carrito.items.map(item => (
-                    <li key={item.idProducto}>
+                  {carrito.items.map(item => {
+                    const proximo = siguienteTramo(item.preciosEscalonados, item.cantidad, item.stock);
+                    return <li key={item.idProducto}>
                       {item.imagen && <img src={`${ASSET_URL}${item.imagen}`} alt={item.nombre} />}
                       <div className="carrito-item-info">
                         <b>{item.nombre}</b>
-                        <span className="muted carrito-precio-unitario">{formatCurrency(item.precioBase)} c/u</span>
+                        <span className="muted carrito-precio-unitario">
+                          {Number(item.precioUnitario) < Number(item.precioBase) && <s>{formatCurrency(item.precioBase)}</s>} {formatCurrency(item.precioUnitario)} c/u
+                        </span>
                         {item.cantidadMinimaCompra && <small>Mínimo: {item.cantidadMinimaCompra} unidades</small>}
+                        {proximo && <small className="precio-mayorista">
+                          Llevando {proximo.cantidadMinima} u pagás {formatCurrency(proximo.precioUnitario)} c/u
+                        </small>}
                       </div>
                       <CantidadCarrito item={item} alGuardar={cantidad => actualizarCantidad(item.idProducto, cantidad)} />
                       <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
-                    </li>
-                  ))}
+                    </li>;
+                  })}
                 </ul>
                 <div className="carrito-subtotal">
                   <span>Subtotal</span>

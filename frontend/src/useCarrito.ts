@@ -79,7 +79,7 @@ export default function useCarrito(idCliente: number, token: string, idNegocio: 
     const items = previo?.idNegocio === producto.idNegocio ? [...previo.items] : [];
     const existente = items.find(item => item.idProducto === producto.idProducto);
     const nuevo = { idProducto: producto.idProducto, version: producto.version, nombre: producto.nombre,
-      precioBase: producto.precioBase, stock: producto.stock, cantidadMinimaCompra: producto.cantidadMinimaCompra, imagen: producto.imagenes[0],
+      precioBase: producto.precioBase, precioUnitario: producto.precioBase, preciosEscalonados: producto.preciosEscalonados, stock: producto.stock, cantidadMinimaCompra: producto.cantidadMinimaCompra, imagen: producto.imagenes[0],
       cantidad: limitarCantidad((existente?.version === producto.version ? existente.cantidad : 0) + unidades, producto.stock, producto.cantidadMinimaCompra ?? 1) };
     return guardar({ idNegocio: producto.idNegocio, nombreNegocio: producto.negocio?.nombreComercial ?? 'Vendedor',
       items: [...items.filter(item => item.idProducto !== producto.idProducto), nuevo] });

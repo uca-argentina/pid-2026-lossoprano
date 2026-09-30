@@ -16,6 +16,10 @@ export type Sesion = {
   negocio: Negocio;
 };
 
+export type Categoria = { idCategoria: number; nombre: string; idNegocio?: number | null };
+export type CategoriaDisponible = { idCategoria: number; nombre: string; general: boolean; cantidadProductos: number };
+export type PrecioEscalonado = { cantidadMinima: number; precioUnitario: string };
+
 export type Producto = {
   cantidadMinimaCompra?: number | null;
   version: number;
@@ -24,8 +28,10 @@ export type Producto = {
   negocio?: Negocio;
   nombre: string;
   descripcion: string;
-  categoria: string;
+  idCategoria: number;
+  categoria: Categoria;
   precioBase: string;
+  preciosEscalonados: PrecioEscalonado[];
   stock: number;
   imagenes: string[];
 };
@@ -36,7 +42,7 @@ export type FiltrosProductos = {
   idNegocio?: number;
 };
 
-export type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; cantidad: number; stock: number; cantidadMinimaCompra?: number | null; imagen?: string };
+export type ItemCarrito = { idProducto: number; version: number; nombre: string; precioBase: string; precioUnitario: string; preciosEscalonados: PrecioEscalonado[]; cantidad: number; stock: number; cantidadMinimaCompra?: number | null; imagen?: string };
 export type Carrito = { idNegocio: number; nombreNegocio: string; items: ItemCarrito[]; subtotal: string; montoMinimoOrden: string; faltanteMinimo: string; cumpleMinimos: boolean } | null;
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api';
@@ -87,6 +93,10 @@ export const api = {
       throw new Error(Array.isArray(cuerpo.message) ? cuerpo.message[0] : cuerpo.message ?? 'No se pudo crear el producto.');
     }
   },
+  categoriasDisponibles: (token: string) => solicitud<CategoriaDisponible[]>('/categorias', {}, token),
+  crearCategoria: (nombre: string, token: string) =>
+    solicitud<CategoriaDisponible>('/categorias', { method: 'POST', body: JSON.stringify({ nombre }) }, token),
+  eliminarCategoria: (idCategoria: number, token: string) => solicitud(`/categorias/${idCategoria}`, { method: 'DELETE' }, token),
   misProductos: (token: string) => solicitud<Producto[]>('/productos/mi-negocio', {}, token),
   listarCategorias: (token: string) => solicitud<string[]>('/productos/categorias', {}, token),
   listarVendedores: (token: string) => solicitud<Pick<Negocio, 'idNegocio' | 'nombreComercial'>[]>('/productos/vendedores', {}, token),

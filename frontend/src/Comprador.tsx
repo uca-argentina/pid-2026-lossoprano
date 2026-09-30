@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, ASSET_URL, Negocio, Producto } from './api';
-import { formatCurrency } from './utils';
+import { formatCurrency, precioParaCantidad } from './utils';
+import { TablaPrecios } from './CampoPreciosEscalonados';
 
 import { limitarCantidad } from './useCarrito';
 import type useCarrito from './useCarrito';
@@ -100,8 +101,11 @@ export default function PanelComprador({ token, idNegocio, estadoCarrito, abrirC
             <div className="producto-info">
               <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
               <b>{producto.nombre}</b>
-              <span className="muted">{producto.categoria}</span>
+              <span className="muted">{producto.categoria.nombre}</span>
               <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
+              {producto.preciosEscalonados.length > 0 && <small className="precio-mayorista">
+                Desde {producto.preciosEscalonados[producto.preciosEscalonados.length - 1].cantidadMinima} u: {formatCurrency(producto.preciosEscalonados[producto.preciosEscalonados.length - 1].precioUnitario)} c/u
+              </small>}
               <small>Stock: {producto.stock}</small>
               {producto.cantidadMinimaCompra && <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>}
               {Number(producto.negocio?.montoMinimoOrden) > 0 && <small>Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}</small>}
@@ -121,6 +125,7 @@ function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: {
   const minimo = producto.cantidadMinimaCompra ?? 1;
   const disponible = producto.stock >= minimo;
   const [cantidad, setCantidad] = useState(minimo);
+  const precioUnitario = precioParaCantidad(producto.precioBase, producto.preciosEscalonados, cantidad);
   const [agregando, setAgregando] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -185,9 +190,10 @@ function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: {
         <div className="detalle-info">
           <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
           <h2>{producto.nombre}</h2>
-          <span className="muted">{producto.categoria}</span>
+          <span className="muted">{producto.categoria.nombre}</span>
           <p>{producto.descripcion}</p>
           <div className="producto-precio">{formatCurrency(producto.precioBase)} <small>por unidad</small></div>
+          <TablaPrecios precioBase={producto.precioBase} tramos={producto.preciosEscalonados} minimo={minimo} />
           <small>Stock disponible: {producto.stock}</small>
           {producto.cantidadMinimaCompra && <p className="muted">Cantidad mínima: {minimo} unidades.</p>}
           {Number(producto.negocio?.montoMinimoOrden) > 0 && <p className="muted">Pedido mínimo a este vendedor: {formatCurrency(producto.negocio!.montoMinimoOrden!)}.</p>}
@@ -209,6 +215,9 @@ function DetalleProducto({ producto, mensaje, esPropio, alCerrar, alAgregar }: {
               {agregando ? 'Agregando…' : 'Agregar al carrito'}
             </button>
           </div>
+          {disponible && !esPropio && <p className="muted detalle-total">
+            {cantidad} u × {formatCurrency(precioUnitario)} = <b>{formatCurrency(Number(precioUnitario) * cantidad)}</b>
+          </p>}
           {esPropio && <p className="muted">Este producto pertenece a tu negocio. No podés agregarlo al carrito.</p>}
           {mensaje && <p className="muted" role="status">{mensaje}</p>}
         </div>
