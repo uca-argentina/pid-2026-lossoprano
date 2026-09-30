@@ -16,6 +16,7 @@ export type Sesion = {
 };
 
 export type Producto = {
+  version: number;
   idProducto: number;
   idNegocio: number;
   negocio?: Negocio;
@@ -49,6 +50,19 @@ async function solicitud<T>(ruta: string, opciones: RequestInit = {}, token?: st
 }
 
 export const api = {
+  actualizarProducto: async (id: number, datos: FormData, token: string): Promise<Producto> => {
+    const respuesta = await fetch(`${API_URL}/productos/${id}`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: datos,
+    });
+    if (!respuesta.ok) {
+      const cuerpo = await respuesta.json().catch(() => ({}));
+      throw new Error(Array.isArray(cuerpo.message) ? cuerpo.message[0] : cuerpo.message ?? 'No se pudo actualizar el producto.');
+    }
+    return respuesta.json();
+  },
+  eliminarProducto: (id: number, token: string) => solicitud(`/productos/${id}`, { method: 'DELETE' }, token),
+  validarCarrito: (items: { idProducto: number; version: number }[], token: string) =>
+    solicitud<number[]>('/productos/carrito/validar', { method: 'POST', body: JSON.stringify({ items }) }, token),
   crearProducto: async (datos: FormData, token: string): Promise<void> => {
     const respuesta = await fetch(`${API_URL}/productos`, {
       method: 'POST',

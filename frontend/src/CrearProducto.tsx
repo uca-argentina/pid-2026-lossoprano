@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import { formatCurrency } from './utils';
+import EditarProducto from './EditarProducto';
 
 interface CrearProductoProps {
   token: string;
@@ -14,6 +15,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [misProductos, setMisProductos] = useState<Producto[]>([]);
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
   useEffect(() => {
     const urls = imagenes.map(imagen => URL.createObjectURL(imagen));
@@ -72,7 +74,14 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
       <h2>Mis productos</h2>
       <div className="producto-grilla">
         {misProductos.map(producto => (
-          <article className="producto-card" key={producto.idProducto}>
+          <article className="producto-card" key={producto.idProducto} role="button" tabIndex={0}
+            onClick={() => setProductoSeleccionado(producto)}
+            onKeyDown={evento => {
+              if (evento.key === 'Enter' || evento.key === ' ') {
+                evento.preventDefault();
+                setProductoSeleccionado(producto);
+              }
+            }}>
             {producto.imagenes[0] && <img src={`${ASSET_URL}${producto.imagenes[0]}`} alt={producto.nombre} />}
             <div className="producto-info">
               <b>{producto.nombre}</b>
@@ -134,6 +143,21 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
         {mensaje && <p className="success" role="status">{mensaje}</p>}
       </form>
       {listPosition === 'below' && productosList}
+      {productoSeleccionado && <EditarProducto
+        producto={productoSeleccionado}
+        token={token}
+        alCerrar={() => setProductoSeleccionado(null)}
+        alGuardar={producto => {
+          setMisProductos(actual => actual.map(item => item.idProducto === producto.idProducto ? producto : item));
+          setProductoSeleccionado(null);
+          setMensaje('Producto actualizado correctamente.');
+        }}
+        alEliminar={id => {
+          setMisProductos(actual => actual.filter(item => item.idProducto !== id));
+          setProductoSeleccionado(null);
+          setMensaje('Producto eliminado correctamente.');
+        }}
+      />}
     </section>
   );
 }

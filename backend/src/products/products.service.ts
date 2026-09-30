@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { BuscarProductosDto } from './dto/buscar-productos.dto';
 import { CrearProductoDto } from './dto/crear-producto.dto';
 import { Producto } from './products.entity';
+import { ValidarCarritoDto } from './dto/validar-carrito.dto';
 
 @Injectable()
 export class ProductosService {
@@ -48,5 +49,32 @@ export class ProductosService {
     const producto = await this.productos.findOne({ where: { idProducto }, relations: { negocio: true } });
     if (!producto) throw new NotFoundException('Producto no encontrado.');
     return producto;
+  }
+
+  async actualizar(idProducto: number, idNegocio: number, dto: CrearProductoDto, imagenes?: string[]) {
+    const resultado = await this.productos.update({ idProducto, idNegocio }, {
+      nombre: dto.nombre,
+      descripcion: dto.descripcion,
+      categoria: dto.categoria,
+      stock: dto.stock,
+      precioBase: dto.precioBase.toFixed(2),
+      ...(imagenes ? { imagenes } : {}),
+    });
+    if (!resultado.affected) throw new NotFoundException('Producto no encontrado.');
+    return this.buscarUno(idProducto);
+  }
+
+  async eliminar(idProducto: number, idNegocio: number) {
+    const resultado = await this.productos.delete({ idProducto, idNegocio });
+    if (!resultado.affected) throw new NotFoundException('Producto no encontrado.');
+    return { mensaje: 'Producto eliminado correctamente.' };
+  }
+
+  async validarCarrito(dto: ValidarCarritoDto) {
+    if (!dto.items.length) return [];
+    const productos = await this.productos.findBy({ idProducto: In(dto.items.map(item => item.idProducto)) });
+    return productos.filter(producto => dto.items.some(item =>
+      item.idProducto === producto.idProducto && item.version === producto.version,
+    )).map(producto => producto.idProducto);
   }
 }

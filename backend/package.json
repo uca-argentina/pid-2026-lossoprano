@@ -7,6 +7,7 @@
     "build": "nest build",
     "start": "node dist/main",
     "test": "jest --runInBand",
+    "test:products": "npm run build && node --test test/products.test.cjs",
     "lint": "eslint \"src/**/*.ts\""
   },
   "dependencies": {
