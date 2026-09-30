@@ -36,7 +36,7 @@ function App() {
         </main>;
 }
 
-function Marca() { return <div className="brand"><span className="brand-mark">B</span><span>bulk<span>market</span></span></div>; }
+function Marca() { return <div className="brand" role="img" aria-label="Bulkmarket"><span className="brand-mark" aria-hidden="true">B</span><span className="brand-name" aria-hidden="true">bulk<span>market</span></span></div>; }
 
 function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) => void; alRegistrarse: () => void }) {
   const [email, setEmail] = useState('');
@@ -332,7 +332,12 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
         </nav>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
-          <button className="logout" onClick={cerrarSesion}>Cerrar sesión</button>
+          <button type="button" className="logout" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={cerrarSesion}>
+            <span className="logout-text">Cerrar sesión</span>
+            <svg className="logout-icon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H5v14h4M14 8l4 4-4 4M9 12h9" />
+            </svg>
+          </button>
         </div>
       </header>
       {seccion === 'explorar' && (

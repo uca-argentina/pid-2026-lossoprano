@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { api, ASSET_URL, Producto } from './api';
 import { formatCurrency } from './utils';
 import EditarProducto from './EditarProducto';
+import CampoCategoria from './CampoCategoria';
 
 interface CrearProductoProps {
   token: string;
@@ -110,10 +111,7 @@ export default function CrearProducto({ token, listPosition = 'below' }: CrearPr
             <span>Descripción</span>
             <textarea name="descripcion" rows={4} required />
           </label>
-          <label className="field">
-            <span>Categoría</span>
-            <input name="categoria" maxLength={100} required />
-          </label>
+          <CampoCategoria />
           <div className="form-grid">
             <label className="field">
               <span>Precio base por unidad</span>
