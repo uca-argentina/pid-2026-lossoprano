@@ -13,7 +13,7 @@ import { CategoriasModule } from './categories/categories.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres' as const,
-        url: config.get<string>('DATABASE_URL'),
+        url: config.getOrThrow<string>('DATABASE_URL'),
         autoLoadEntities: true,
         synchronize: config.get<string>('NODE_ENV') !== 'production',
       }),

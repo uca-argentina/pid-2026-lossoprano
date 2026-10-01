@@ -48,6 +48,12 @@ export default function PanelComprador({ token, idNegocio, estadoCarrito, abrirC
   }, [q, categoria, vendedor, token]);
 
   useEffect(() => {
+    const refrescar = () => { setDetalle(null); void buscar(); };
+    window.addEventListener('stock-actualizado', refrescar);
+    return () => window.removeEventListener('stock-actualizado', refrescar);
+  }, [q, categoria, vendedor, token]);
+
+  useEffect(() => {
     let activo = true;
     async function cargarFiltros() {
       try {

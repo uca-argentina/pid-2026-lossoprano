@@ -209,6 +209,8 @@ select{font:inherit}
 .vendedor .precio-mayorista{color:#6c3d82}
 .carrito-precio-unitario s{color:#96a39b;margin-right:2px}
 .detalle-total{margin:12px 0 0}
+.checkout-form{display:flex;flex-direction:column;gap:14px;margin-top:18px}
+.checkout-form h3,.checkout-form p{margin:0}
 .mis-categorias h2{font-size:21px}
 .categorias-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .categorias-lista li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;border:1px solid #e2e6dd;border-radius:9px;background:#fff}

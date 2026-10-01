@@ -18,6 +18,19 @@ const { claveCategoria } = require('../dist/categories/category.entity');
 
 const datos = { nombre: 'Producto', descripcion: 'Descripción', idCategoria: 1, stock: 3, precioBase: 12.5 };
 
+test('checkout exige dirección, condición simulada, clave y carrito válido', () => {
+  const { ConfirmarPedidoDto } = require('../dist/products/dto/confirmar-pedido.dto');
+  const base = { direccionEntrega: ' Calle 123 ', condicionPago: 'CONTADO', claveConfirmacion: require('node:crypto').randomUUID(), total: '10.00', items: [{ idProducto: 1, version: 1, cantidad: 1 }] };
+  for (const condicionPago of ['CONTADO', 'TRANSFERENCIA', 'CUENTA_CORRIENTE']) {
+    const dto = plainToInstance(ConfirmarPedidoDto, { ...base, condicionPago });
+    assert.equal(validateSync(dto).length, 0);
+    assert.equal(dto.direccionEntrega, 'Calle 123');
+  }
+  for (const cambio of [{ direccionEntrega: '  ' }, { condicionPago: 'TARJETA' }, { items: [] }, { items: [{ idProducto: 1, version: 1, cantidad: -1 }] }, { claveConfirmacion: 'abc' }]) {
+    assert.ok(validateSync(plainToInstance(ConfirmarPedidoDto, { ...base, ...cambio })).length);
+  }
+});
+
 function transaccional(repo) {
   repo.manager = { transaction: callback => callback({ getRepository: entidad =>
     entidad.name === 'Producto' ? repo

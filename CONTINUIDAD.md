@@ -1,6 +1,6 @@
 # BulkMarket — guía de continuidad
 
-Última revisión: 30 de septiembre de 2026. Este documento describe el código actual y las decisiones tomadas; no sustituye su revisión antes de hacer cambios. Está pensado para otra persona o agente que continúe el proyecto.
+Última revisión: 1 de octubre de 2026. Este documento describe el código actual y las decisiones tomadas; no sustituye su revisión antes de hacer cambios. Está pensado para otra persona o agente que continúe el proyecto.
 
 ## Propósito y alcance actual
 
@@ -16,9 +16,9 @@ Implementado:
 - Precios escalonados por producto: el precio unitario baja al alcanzar determinadas cantidades.
 - Carrito persistido en PostgreSQL, de un único vendedor por cuenta.
 - Monto mínimo de orden por vendedor y cantidad mínima opcional por producto.
-- Botón de finalizar compra habilitado solo al cumplir las condiciones. **Por ahora no hace nada al pulsarlo**, intencionalmente.
+- Checkout dentro del carrito: dirección de entrega editable, condición de pago simulada (contado, transferencia o cuenta corriente) y confirmación que persiste el pedido, descuenta stock y vacía el carrito en una transacción.
 
-No implementado: creación de pedidos, pago, estados de pedido, reserva/descuento de stock por compra, panel de pedidos, checkout multi-vendedor y reseñas. No presentar el botón actual como un checkout funcional.
+No implementado: cobros reales, rechazo/cancelación y restitución de stock, panel de pedidos, checkout multi-vendedor y reseñas. Los pedidos se crean como CONFIRMADO; no hay otras transiciones ni vistas de pedidos.
 
 ## Decisiones de negocio que deben conservarse
 
@@ -67,18 +67,22 @@ cp .env.example .env
 # Editar .env y definir un JWT_SECRET largo y aleatorio.
 npm ci
 docker compose up -d
+# Solo si la base conserva productos con categorías de texto:
+# npm run migrar:categorias
 npm run start:dev
 ```
 
 Desde `frontend/`, en otra terminal:
 
 ```sh
-cp .env.example .env
+# Opcional: copiar .env.example a .env para cambiar VITE_API_URL.
 npm ci
 npm run dev
 ```
 
 No sobrescribir archivos .env existentes al seguir estos ejemplos.
+
+En PowerShell se puede usar `Copy-Item .env.example .env`. Cada integrante configura su propio `.env`, excluido de Git; la configuración compartida está en `.env.example` y `docker-compose.yml`. El frontend funciona sin `.env` usando la API local por defecto. Mantener backend y frontend corriendo en terminales separadas.
 
 - Web habitual: `http://localhost:5173`.
 - API: `http://localhost:3000/api`.
@@ -141,6 +145,7 @@ Todas las rutas siguientes son relativas a `/api`. Salvo registro/login, requier
 | POST | `/productos` | Crear producto (vendedor, multipart; `idCategoria` y `preciosEscalonados` como JSON) |
 | PATCH / DELETE | `/productos/:id` | Modificar/borrar producto propio (vendedor) |
 | GET / PUT | `/carrito` | Leer/reemplazar carrito de la cuenta autenticada |
+| POST | `/pedidos` | Confirmar el carrito con dirección, condición de pago simulada, total revisado, items y clave UUID de confirmación |
 | POST | `/productos/carrito/validar` | Validación de IDs/versiones; no reemplaza el guardado completo |
 
 `q` busca nombre y descripción del producto, no nombre del negocio. El filtro de vendedor resuelve esa búsqueda. El catálogo devuelve 24 productos por defecto; la API admite limit/offset, pero la UI no expone paginación actualmente.
@@ -201,7 +206,7 @@ npm run build
 npm run test:cart
 ```
 
-Las pruebas del frontend ejercitan API/hook y edición de cantidades mediante mocks, no son pruebas visuales en navegadores. La última compilación del frontend pasó tras ajustar la transición; las 11 pruebas del carrito pasaron antes de ese último cambio exclusivamente CSS. No se volvió a ejecutar la integración PostgreSQL para redactar esta guía.
+Las pruebas del frontend ejercitan API/hook y edición de cantidades mediante mocks, no son pruebas visuales en navegadores. Para los resultados posteriores a los ajustes de interfaz, consultar las verificaciones del checkout y de las correcciones de arranque documentadas abajo.
 
 Checklist manual útil antes de entregar cambios:
 
@@ -212,9 +217,30 @@ Checklist manual útil antes de entregar cambios:
 5. Reescribir cantidades (por ejemplo, 10 → 30), flechas y Enter.
 6. Probar móvil de aproximadamente 400 × 870 y Safari además de Firefox: navbar, modales, scroll, precio unitario y transición del botón.
 
+## Checkout incorporado el 1 de octubre de 2026
+
+El checkout está integrado en `PanelCarrito.tsx`. Precarga la dirección del negocio y permite editarla. El backend conserva dirección, condición de pago, cantidades, nombres y precios históricos en `pedido`; sus líneas se guardan como JSONB. La tabla no tiene borrados en cascada desde cuentas, negocios o productos.
+
+`PedidosService.confirmar` bloquea la cuenta y los productos ordenados por ID, valida que el carrito coincida con la revisión del comprador y vuelve a comprobar versiones, stock, precios y mínimos. Descuenta stock sin cambiar la versión comercial del producto, guarda el pedido y vacía el carrito en una transacción. Los reintentos con la misma clave UUID y cuenta devuelven el pedido existente sin descontar nuevamente. El frontend conserva esa solicitud mientras se reintenta desde el checkout.
+
+En producción aplicar `backend/migrations/005-checkout.sql` después de las anteriores. En desarrollo TypeORM crea la tabla al iniciar. No se aplicó la migración contra una base existente durante este cambio.
+
+Verificación de este cambio: compilaciones de ambas aplicaciones; 21 pruebas unitarias de backend y 15 de frontend aprobadas. La integración PostgreSQL incluye confirmación, precio escalonado, reintento y stock insuficiente, pero no pudo ejecutarse porque PostgreSQL local y Docker estaban detenidos. Ejecutar `npm run test:checkout` para la lógica y `npm run test:cart:integration` con PostgreSQL disponible. No se verificó visualmente en navegador.
+
+## Correcciones de arranque del 1 de octubre de 2026
+
+- **Credenciales ausentes:** el error `SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string` se debía a que faltaban `backend/.env` y `DATABASE_URL` en el entorno. Se creó el archivo local a partir del ejemplo, con las credenciales del Compose y un `JWT_SECRET` aleatorio. Ese archivo no se versiona ni se comparte. En `backend/src/app.module.ts` se usa ahora `config.getOrThrow<string>('DATABASE_URL')` para detectar explícitamente la variable ausente.
+- **Productos existentes sin versión:** TypeORM intentaba ejecutar `ALTER TABLE "producto" ADD "version" integer NOT NULL`, que falla con filas existentes. Se cambió la entidad `backend/src/products/products.entity.ts` a `@VersionColumn({ default: 1 })`. Así la sincronización de desarrollo asigna 1 a los productos existentes al crear la columna. Es una corrección compartida para todos los integrantes, sin credenciales ni rutas particulares. En producción sigue correspondiendo aplicar `001-product-version.sql`.
+- **Categorías antiguas:** la base local conservaba la columna de texto `categoria`. Se ejecutó correctamente `npm run migrar:categorias` antes del arranque, usando la migración existente para conservar las categorías. Los demás integrantes con ese esquema anterior deben ejecutar el mismo comando desde `backend/`; no deben borrar la base. El procedimiento también quedó documentado en `backend/README.md`.
+- **Verificación realizada:** conexión a PostgreSQL y `npm run build` correctos; inicialización completa de Nest mediante `createApplicationContext(AppModule)`, incluida la sincronización de TypeORM, correcta. Pasaron las 19 pruebas de `node --test test/products.test.cjs test/cart.integration.cjs`, incluida la integración PostgreSQL que había quedado pendiente durante el checkout. En esta revisión no se repitieron las pruebas del frontend ni una verificación visual en navegador.
+
+Tras estos cambios, reiniciar el backend con `npm run start:dev`. Para el frontend, ejecutar `npm ci` si faltan dependencias y `npm run dev` desde `frontend/`, y abrir la dirección indicada por Vite (habitualmente `http://localhost:5173`).
+
+No se hicieron commits ni pushes durante estas correcciones. Antes de subir la rama, revisar `git status` y `git diff`: hay cambios de otras funcionalidades en el árbol de trabajo y `git add .` también los incluiría.
+
 ## Próximos pasos y precauciones
 
-Al implementar pedidos, guardar en cada línea el precio unitario aplicado en ese momento (no recalcularlo después) y la categoría no hace falta copiarla. Antes de implementar pedidos, definir estados, términos de pago, política de stock y si el alcance sigue siendo un solo vendedor por checkout. El guardado del carrito no reserva ni descuenta stock: un checkout futuro deberá revalidar precio/versiones, stock y mínimos dentro de una transacción y tratar reintentos de forma segura.
+El guardado del carrito no reserva stock; solo la confirmación del checkout lo descuenta. La cancelación, rechazo y restitución quedan fuera del alcance actual. Antes de incorporarlos, definir permisos, transiciones y el tratamiento de productos eliminados. La edición manual actual envía un stock absoluto y debe revisarse si se requiere detectar formularios abiertos antes de una venta.
 
 Para producción también falta revisar autenticación/expiración y manejo de errores, límites de peticiones, validación real del contenido de imágenes (actualmente se filtra por MIME declarado), almacenamiento persistente y migraciones completas. Son puntos a evaluar, no funcionalidades ya implementadas.
 

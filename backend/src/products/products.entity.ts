@@ -8,7 +8,7 @@ export class Producto {
   @PrimaryGeneratedColumn({ name: 'id_producto' })
   idProducto: number;
 
-  @VersionColumn()
+  @VersionColumn({ default: 1 })
   version: number;
 
   @ManyToOne(() => Negocio, { onDelete: 'CASCADE' })

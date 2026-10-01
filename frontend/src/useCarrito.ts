@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, Carrito, Producto } from './api';
+import { api, Carrito, Producto, ConfirmacionPedido } from './api';
 
 export function limitarCantidad(cantidad: number, stock: number, minimo = 1) {
   if (!Number.isInteger(stock) || stock < minimo) return 0;
@@ -10,6 +10,7 @@ export default function useCarrito(idCliente: number, token: string, idNegocio: 
   const [carrito, setCarrito] = useState<Carrito>(null);
   const [avisoCarrito, setAviso] = useState('');
   const [listo, setListo] = useState(false);
+  const [procesando, setProcesando] = useState(false);
   const actual = useRef<Carrito>(null);
   const ocupado = useRef(false);
   const revision = useRef(0);
@@ -59,6 +60,7 @@ export default function useCarrito(idCliente: number, token: string, idNegocio: 
   async function guardar(valor: Pick<NonNullable<Carrito>, 'idNegocio' | 'nombreNegocio' | 'items'> | null) {
     if (!listo || ocupado.current) { setAviso('Esperá a que termine de actualizarse el carrito e intentá nuevamente.'); return false; }
     ocupado.current = true;
+    setProcesando(true);
     revision.current++;
     try {
       mostrar(await api.guardarCarrito(valor?.items ?? [], token));
@@ -67,7 +69,21 @@ export default function useCarrito(idCliente: number, token: string, idNegocio: 
     } catch (error) {
       if (activo.current) setAviso(error instanceof Error ? error.message : 'No se pudo guardar el carrito.');
       return false;
-    } finally { ocupado.current = false; }
+    } finally { ocupado.current = false; setProcesando(false); }
+  }
+
+  async function confirmar(datos: ConfirmacionPedido) {
+    if (!listo || ocupado.current) throw new Error('Esperá a que termine de actualizarse el carrito.');
+    ocupado.current = true;
+    setProcesando(true);
+    revision.current++;
+    try {
+      const pedido = await api.confirmarPedido(datos, token);
+      mostrar(null);
+      setAviso('');
+      window.dispatchEvent(new Event('stock-actualizado'));
+      return pedido;
+    } finally { ocupado.current = false; setProcesando(false); }
   }
 
   async function agregar(producto: Producto, cantidad: number) {
@@ -93,5 +109,5 @@ export default function useCarrito(idCliente: number, token: string, idNegocio: 
     const previo = actual.current;
     if (previo) return guardar({ ...previo, items: previo.items.filter(item => item.idProducto !== id) });
   }
-  return { carrito, avisoCarrito, agregar, actualizarCantidad, quitar, vaciar: () => guardar(null) };
+  return { carrito, avisoCarrito, procesando, confirmar, agregar, actualizarCantidad, quitar, vaciar: () => guardar(null) };
 }

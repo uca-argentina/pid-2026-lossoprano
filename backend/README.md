@@ -4,11 +4,13 @@ API de BulkMarket para autenticación JWT y administración del negocio asociado
 
 ## Inicio
 
-1. Crea `.env` y definí `JWT_SECRET`.
+1. Desde `backend`, copiá `.env.example` a `.env` (`Copy-Item .env.example .env` en PowerShell). Definí `JWT_SECRET` y conservá `DATABASE_URL` si usás el PostgreSQL del compose; si usás otra base, ajustá sus credenciales.
 2. Iniciá PostgreSQL con `docker compose up -d`.
 3. Ejecutá `npm install` y `npm run start:dev`.
 
 La API queda disponible en `http://localhost:3000/api`.
+
+Cada integrante mantiene su propio `.env` (excluido de Git); `.env.example` y `docker-compose.yml` contienen la configuración compartida para desarrollo. Al actualizar una base que ya tiene productos con categorías de texto, ejecutá `npm run migrar:categorias` antes de iniciar el backend. No hace falta borrar la base ni sus productos. La columna `version` se crea con valor inicial 1 para los productos existentes.
 
 En desarrollo, TypeORM agrega automáticamente la columna `producto.version` y la tabla `carrito_item` al iniciar la API. Para una base de producción, aplicar `migrations/001-product-version.sql` y `migrations/002-cart.sql`, en ese orden, antes de desplegar esta versión.
 

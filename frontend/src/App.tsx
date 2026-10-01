@@ -466,7 +466,7 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
           </>
         </div>
       )}
-      {carritoAbierto && <PanelCarrito estado={estadoCarrito} alCerrar={() => setCarritoAbierto(false)} />}
+      {carritoAbierto && <PanelCarrito estado={estadoCarrito} direccionInicial={sesion.negocio.direccion} alCerrar={() => setCarritoAbierto(false)} />}
     </main>
   );
 }
