@@ -1,11 +1,29 @@
-import { useEffect } from 'react';
-import { ASSET_URL } from './api';
+import { FormEvent, useEffect, useRef, useState } from 'react';
+import { ASSET_URL, Carrito, CondicionPago, ConfirmacionPedido, PedidoConfirmado } from './api';
 import { formatCurrency, siguienteTramo } from './utils';
 import useCarrito from './useCarrito';
 import CantidadCarrito from './CantidadCarrito';
 
-export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<typeof useCarrito>; alCerrar: () => void }) {
-  const { carrito, avisoCarrito, actualizarCantidad, quitar, vaciar } = estado;
+export default function PanelCarrito({ estado, alCerrar, direccionInicial = '' }: { estado: ReturnType<typeof useCarrito>; alCerrar: () => void; direccionInicial?: string }) {
+  const { avisoCarrito, actualizarCantidad, quitar, vaciar } = estado;
+  const [resumen, setResumen] = useState<Carrito>(null);
+  const carrito = resumen ?? estado.carrito;
+  const [checkout, setCheckout] = useState(false);
+  const [direccion, setDireccion] = useState(direccionInicial);
+  const [pago, setPago] = useState<CondicionPago>('CONTADO');
+  const [error, setError] = useState('');
+  const [pedido, setPedido] = useState<PedidoConfirmado | null>(null);
+  const intento = useRef<ConfirmacionPedido | null>(null);
+  async function confirmar(evento: FormEvent) {
+    evento.preventDefault();
+    if (!carrito || estado.procesando) return;
+    setError('');
+    // Reutilizar la misma solicitud si se pierde la respuesta de la confirmación.
+    intento.current ??= { direccionEntrega: direccion.trim(), condicionPago: pago, claveConfirmacion: crypto.randomUUID(), total: carrito.subtotal,
+      items: carrito.items.map(({ idProducto, version, cantidad }) => ({ idProducto, version, cantidad })) };
+    try { setPedido(await estado.confirmar(intento.current)); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No se pudo confirmar el pedido.'); }
+  }
   const subtotalCarrito = carrito?.subtotal ?? '0.00';
   useEffect(() => {
     const anterior = document.body.style.overflow;
@@ -22,7 +40,7 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
               <button type="button" className="link" onClick={() => alCerrar()}>Cerrar</button>
             </header>
             {avisoCarrito && <p className="muted" role="status">{avisoCarrito}</p>}
-            {!carrito || carrito.items.length === 0 ? (
+            {pedido ? <p className="success" role="status">Pedido #{pedido.idPedido} confirmado por {formatCurrency(pedido.total)}. Dirección de entrega: {pedido.direccionEntrega}. Condición de pago: {pedido.condicionPago === 'CUENTA_CORRIENTE' ? 'Cuenta corriente' : pedido.condicionPago === 'TRANSFERENCIA' ? 'Transferencia' : 'Contado'} (simulada).</p> : !carrito || carrito.items.length === 0 ? (
               <p className="muted">Todavía no agregaste productos.</p>
             ) : (
               <>
@@ -42,8 +60,8 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
                           Llevando {proximo.cantidadMinima} u pagás {formatCurrency(proximo.precioUnitario)} c/u
                         </small>}
                       </div>
-                      <CantidadCarrito item={item} alGuardar={cantidad => actualizarCantidad(item.idProducto, cantidad)} />
-                      <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>
+                      {!checkout && <CantidadCarrito item={item} alGuardar={cantidad => actualizarCantidad(item.idProducto, cantidad)} />}
+                      {checkout ? <span>{item.cantidad} unidades</span> : <button type="button" className="link" onClick={() => quitar(item.idProducto)}>Quitar</button>}
                     </li>;
                   })}
                 </ul>
@@ -64,12 +82,23 @@ export default function PanelCarrito({ estado, alCerrar }: { estado: ReturnType<
                   />
                 </div>}
                 <p className={carrito.cumpleMinimos ? 'success' : 'muted'} role="status">
-                  {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.`}
+                  {carrito.cumpleMinimos ? 'Tu carrito cumple las condiciones mínimas del vendedor.' : Number(carrito.faltanteMinimo) > 0 ? `Te faltan ${formatCurrency(carrito.faltanteMinimo)} para alcanzar el monto mínimo del vendedor.` : 'Revisá las cantidades: cambió el stock disponible.'}
                 </p>
-                <button type="button" className="danger" onClick={vaciar}>Vaciar carrito</button>
-                <button type="button" className="primary finalizar-compra" disabled={!carrito.cumpleMinimos}>
+                {!checkout && <button type="button" className="danger" disabled={estado.procesando} onClick={vaciar}>Vaciar carrito</button>}
+                {!checkout && <button type="button" className="primary finalizar-compra" disabled={!carrito.cumpleMinimos || estado.procesando} onClick={() => { setResumen(carrito); setCheckout(true); }}>
                   Finalizar compra
-                </button>
+                </button>}
+                {checkout && <form onSubmit={confirmar} className="checkout-form">
+                  <h3>Datos de entrega y pago</h3>
+                  <label className="field"><span>Dirección de entrega</span><input required maxLength={255} autoComplete="street-address" value={direccion} disabled={estado.procesando || !!intento.current} onChange={e => setDireccion(e.target.value)} /></label>
+                  <label className="field"><span>Condición de pago</span><select value={pago} disabled={estado.procesando || !!intento.current} onChange={e => setPago(e.target.value as CondicionPago)}>
+                    <option value="CONTADO">Contado</option><option value="TRANSFERENCIA">Transferencia</option><option value="CUENTA_CORRIENTE">Cuenta corriente</option>
+                  </select></label>
+                  <p className="muted">El pago es simulado. No se realizará ningún cobro.</p>
+                  {error && <p className="error" role="alert">{error}</p>}
+                  <button type="submit" className="primary finalizar-compra" disabled={estado.procesando || !direccion.trim()}>{estado.procesando ? 'Confirmando…' : 'Confirmar pedido'}</button>
+                  <button type="button" className="link" disabled={estado.procesando} onClick={() => { setCheckout(false); setResumen(null); intento.current = null; setError(''); }}>Volver al carrito</button>
+                </form>}
               </>
             )}
           </aside>

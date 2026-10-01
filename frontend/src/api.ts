@@ -1,4 +1,7 @@
 export type Rol = 'COMPRADOR' | 'VENDEDOR';
+export type CondicionPago = 'CONTADO' | 'TRANSFERENCIA' | 'CUENTA_CORRIENTE';
+export type ConfirmacionPedido = { direccionEntrega: string; condicionPago: CondicionPago; claveConfirmacion: string; total: string; items: Pick<ItemCarrito, 'idProducto' | 'version' | 'cantidad'>[] };
+export type PedidoConfirmado = { idPedido: number; total: string; direccionEntrega: string; condicionPago: CondicionPago };
 
 export type Negocio = {
   montoMinimoOrden?: string;
@@ -66,6 +69,7 @@ async function solicitud<T>(ruta: string, opciones: RequestInit = {}, token?: st
 }
 
 export const api = {
+  confirmarPedido: (datos: ConfirmacionPedido, token: string) => solicitud<PedidoConfirmado>('/pedidos', { method: 'POST', body: JSON.stringify(datos) }, token),
   obtenerCarrito: (token: string) => solicitud<Carrito>('/carrito', {}, token),
   guardarCarrito: (items: Pick<ItemCarrito, 'idProducto' | 'version' | 'cantidad'>[], token: string, importar = false) =>
     solicitud<Carrito>('/carrito', { method: 'PUT', body: JSON.stringify({ items, importar }) }, token),

@@ -11,16 +11,20 @@ const { ProductosService } = require('../dist/products/products.service');
 const { Categoria } = require('../dist/categories/category.entity');
 const { PrecioEscalonado } = require('../dist/products/price-tier.entity');
 const { CategoriasService } = require('../dist/categories/categories.service');
+const { Pedido } = require('../dist/products/order.entity');
+const { PedidosService } = require('../dist/products/orders.service');
+const { randomUUID } = require('node:crypto');
 
 test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', async () => {
   const db = new DataSource({ type: 'postgres',
     url: process.env.TEST_DATABASE_URL ?? 'postgres://bulkmarket:bulkmarket@localhost:5432/bulkmarket',
-    entities: [Producto, Negocio, Cliente, CarritoItem, Categoria, PrecioEscalonado], synchronize: false });
+    entities: [Producto, Negocio, Cliente, CarritoItem, Categoria, PrecioEscalonado, Pedido], synchronize: false });
   await db.initialize();
   const runner = db.createQueryRunner();
   await runner.connect();
   await runner.startTransaction();
   try {
+    await runner.query(`CREATE TEMP TABLE pedido (id_pedido serial PRIMARY KEY, id_cliente integer NOT NULL, id_negocio_comprador integer NOT NULL, id_negocio_vendedor integer NOT NULL, clave_confirmacion uuid NOT NULL, direccion_entrega varchar(255) NOT NULL, condicion_pago varchar(20) NOT NULL, estado varchar(20) DEFAULT 'CONFIRMADO', items jsonb NOT NULL, total numeric(20,2) NOT NULL, creado_en timestamptz DEFAULT now(), UNIQUE(id_cliente, clave_confirmacion))`);
     await runner.query('CREATE TEMP TABLE negocio (id_negocio serial PRIMARY KEY, razon_social varchar(150), nombre_comercial varchar(150), identificacion_fiscal varchar(50), telefono varchar(40), direccion varchar(255), monto_minimo_orden decimal(12,2) NOT NULL DEFAULT 0)');
     await runner.query('CREATE TEMP TABLE cliente (id_cliente serial PRIMARY KEY, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, email varchar(180), password_hash varchar, rol varchar(20))');
     await runner.query('CREATE TEMP TABLE categoria (id_categoria serial PRIMARY KEY, nombre varchar(100) NOT NULL, clave varchar(100) NOT NULL, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, UNIQUE (id_negocio, clave))');
@@ -94,6 +98,24 @@ test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', a
       assert.equal(resultado.items[0].precioUnitario, unitario);
       assert.equal(resultado.subtotal, subtotal);
     }
+    const pedidos = new PedidosService({ transaction: callback => runner.manager.transaction(callback) });
+    const compra = { items: [{ ...lineaEscalonada, cantidad: 60 }], total: '480.00', direccionEntrega: 'San Martín 123', condicionPago: 'TRANSFERENCIA', claveConfirmacion: randomUUID() };
+    await carrito.guardar(2, { items: compra.items });
+    await assert.rejects(pedidos.confirmar(1, { ...compra, total: '1.00' }), e => e.getStatus() === 409);
+    assert.equal((await productos.buscarUno(escalonado.idProducto)).stock, 100);
+    const confirmado = await pedidos.confirmar(1, compra);
+    assert.equal(confirmado.direccionEntrega, compra.direccionEntrega);
+    assert.equal(confirmado.condicionPago, 'TRANSFERENCIA');
+    assert.equal(confirmado.items[0].precioUnitario, '8.00');
+    assert.equal(confirmado.total, '480.00');
+    assert.equal(await carrito.obtener(1), null);
+    assert.equal((await productos.buscarUno(escalonado.idProducto)).stock, 40);
+    assert.equal((await productos.buscarUno(escalonado.idProducto)).version, escalonado.version);
+    assert.equal((await pedidos.confirmar(1, compra)).idPedido, confirmado.idPedido);
+    assert.equal((await productos.buscarUno(escalonado.idProducto)).stock, 40);
+    await assert.rejects(pedidos.confirmar(2, { ...compra, claveConfirmacion: randomUUID() }), e => e.getStatus() === 409);
+    assert.equal(await runner.manager.getRepository(Pedido).count(), 1);
+    assert.equal((await carrito.obtener(2)).items.length, 1);
     const sinTramos = await productos.actualizar(escalonado.idProducto, 2, { ...dto, stock: 100 });
     assert.deepEqual(sinTramos.preciosEscalonados, []);
 
