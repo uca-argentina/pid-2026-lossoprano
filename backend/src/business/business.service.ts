@@ -1,3 +1,10 @@
+/**
+ * Consulta, edición y baja del negocio autenticado. El controlador pasa el ID
+ * extraído del JWT.
+ * El mínimo de orden se normaliza a dos decimales y no se mezcla con la cantidad
+ * mínima de un producto.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,7 +13,9 @@ import { ActualizarNegocioDto } from './dto/update-business.dto';
 
 @Injectable()
 export class NegociosService {
-  constructor(@InjectRepository(Negocio) private readonly negocios: Repository<Negocio>) {}
+  constructor(
+    @InjectRepository(Negocio) private readonly negocios: Repository<Negocio>,
+  ) {}
 
   async buscarUno(idNegocio: number) {
     const negocio = await this.negocios.findOneBy({ idNegocio });
@@ -18,7 +27,8 @@ export class NegociosService {
     const negocio = await this.buscarUno(idNegocio);
     const { montoMinimoOrden, ...datos } = dto;
     Object.assign(negocio, datos);
-    if (montoMinimoOrden !== undefined) negocio.montoMinimoOrden = montoMinimoOrden.toFixed(2);
+    if (montoMinimoOrden !== undefined)
+      negocio.montoMinimoOrden = montoMinimoOrden.toFixed(2);
     return this.negocios.save(negocio);
   }
 

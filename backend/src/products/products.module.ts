@@ -1,3 +1,9 @@
+/**
+ * Registra entidades y proveedores del catálogo, carrito, imágenes y pedidos.
+ * Aunque varios controladores viven en este módulo, cada servicio mantiene su
+ * responsabilidad de negocio.
+ */
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductosController } from './products.controller';
@@ -13,5 +19,18 @@ import { PedidosController } from './orders.controller';
 import { PedidosService } from './orders.service';
 import { ImagenesService } from './images.service';
 
-@Module({ imports: [TypeOrmModule.forFeature([Producto, CarritoItem, PrecioEscalonado, Categoria, Pedido, Suborden])], controllers: [ProductosController, CarritoController, PedidosController], providers: [ProductosService, CarritoService, PedidosService, ImagenesService] })
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      Producto,
+      CarritoItem,
+      PrecioEscalonado,
+      Categoria,
+      Pedido,
+      Suborden,
+    ]),
+  ],
+  controllers: [ProductosController, CarritoController, PedidosController],
+  providers: [ProductosService, CarritoService, PedidosService, ImagenesService],
+})
 export class ProductosModule {}

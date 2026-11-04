@@ -1,3 +1,11 @@
+/**
+ * Pruebas de regresión del frontend con node:test.
+ * Los helpers transpilan TypeScript y sustituyen módulos/efectos para ejercitar lógica
+ * sin un navegador real.
+ * Estas pruebas no reemplazan una revisión visual: para estilos, foco o desplazamiento
+ * también hay que abrir la interfaz.
+ */
+
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -7,8 +15,13 @@ const ts = require('typescript');
 
 // Ejecuta el hook real con almacenamiento, reloj y respuestas de API controlados.
 function carritoPrueba(guardado, versiones, idNegocio = 1, servidor = { items: [] }) {
-  const estados = [], efectos = [], pendientes = [], intervalos = new Set();
-  const almacenamiento = new Map(guardado ? [['bulkmarket-carrito-1', JSON.stringify(guardado)]] : []);
+  const estados = [],
+    efectos = [],
+    pendientes = [],
+    intervalos = new Set();
+  const almacenamiento = new Map(
+    guardado ? [['bulkmarket-carrito-1', JSON.stringify(guardado)]] : [],
+  );
   let indice = 0;
   const react = {
     useRef(inicial) {
@@ -18,23 +31,36 @@ function carritoPrueba(guardado, versiones, idNegocio = 1, servidor = { items: [
     },
     useState(inicial) {
       const posicion = indice++;
-      if (!(posicion in estados)) estados[posicion] = typeof inicial === 'function' ? inicial() : inicial;
-      return [estados[posicion], valor => { estados[posicion] = typeof valor === 'function' ? valor(estados[posicion]) : valor; }];
+      if (!(posicion in estados))
+        estados[posicion] = typeof inicial === 'function' ? inicial() : inicial;
+      return [
+        estados[posicion],
+        (valor) => {
+          estados[posicion] =
+            typeof valor === 'function' ? valor(estados[posicion]) : valor;
+        },
+      ];
     },
     useEffect(callback, deps) {
       const posicion = indice++;
       const previo = efectos[posicion];
       if (!previo || deps.some((valor, i) => !Object.is(valor, previo.deps[i]))) {
         previo?.cleanup?.();
-        pendientes.push(() => { efectos[posicion] = { deps, cleanup: callback() }; });
+        pendientes.push(() => {
+          efectos[posicion] = { deps, cleanup: callback() };
+        });
       }
     },
   };
   const exports = {};
   const source = fs.readFileSync(path.join(__dirname, '../src/useCarrito.ts'), 'utf8');
-  const compiled = ts.transpileModule(source, { compilerOptions: {
-    module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022,
-  } }).outputText;
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
   vm.runInNewContext(compiled, {
     exports,
     require(name) {
@@ -42,46 +68,85 @@ function carritoPrueba(guardado, versiones, idNegocio = 1, servidor = { items: [
       if (name === './api') {
         const obtener = async () => {
           if (servidor.errorCarga) throw new Error(servidor.errorCarga);
-          servidor.items = servidor.items.filter(item => versiones.get(item.idProducto) === item.version);
+          servidor.items = servidor.items.filter(
+            (item) => versiones.get(item.idProducto) === item.version,
+          );
           if (!servidor.items.length) return null;
-          const items = servidor.items.map(item => ({ ...producto, idNegocio: vendedorDe(item.idProducto), cantidadMinimaCompra: servidor.minimos?.[item.idProducto], ...item, precioBase: item.version === 2 ? '20.00' : '10.00' }));
-          return { subtotal: '0.00', cumpleMinimos: true, items,
-            vendedores: [...new Set(items.map(item => item.idNegocio))].map(idNegocio => ({ idNegocio, nombreNegocio: `Marca ${idNegocio}` })) };
+          const items = servidor.items.map((item) => ({
+            ...producto,
+            idNegocio: vendedorDe(item.idProducto),
+            cantidadMinimaCompra: servidor.minimos?.[item.idProducto],
+            ...item,
+            precioBase: item.version === 2 ? '20.00' : '10.00',
+          }));
+          return {
+            subtotal: '0.00',
+            cumpleMinimos: true,
+            items,
+            vendedores: [...new Set(items.map((item) => item.idNegocio))].map(
+              (idNegocio) => ({ idNegocio, nombreNegocio: `Marca ${idNegocio}` }),
+            ),
+          };
         };
-        return { api: {
-          confirmarPedido: async datos => {
-            if (servidor.errorCheckout) throw new Error('Stock insuficiente');
-            servidor.confirmaciones = (servidor.confirmaciones ?? 0) + 1;
-            servidor.items = [];
-            return { idPedido: 42, total: datos.total };
+        return {
+          api: {
+            confirmarPedido: async (datos) => {
+              if (servidor.errorCheckout) throw new Error('Stock insuficiente');
+              servidor.confirmaciones = (servidor.confirmaciones ?? 0) + 1;
+              servidor.items = [];
+              return { idPedido: 42, total: datos.total };
+            },
+            obtenerCarrito: obtener,
+            guardarCarrito: async (items, token, importar) => {
+              if (!importar || !servidor.items.length) servidor.items = items;
+              return obtener();
+            },
           },
-          obtenerCarrito: obtener,
-          guardarCarrito: async (items, token, importar) => {
-            if (!importar || !servidor.items.length) servidor.items = items;
-            return obtener();
-          },
-        } };
+        };
       }
       return {};
     },
-    localStorage: { getItem: clave => almacenamiento.get(clave), setItem: (clave, valor) => almacenamiento.set(clave, valor), removeItem: clave => almacenamiento.delete(clave) },
+    localStorage: {
+      getItem: (clave) => almacenamiento.get(clave),
+      setItem: (clave, valor) => almacenamiento.set(clave, valor),
+      removeItem: (clave) => almacenamiento.delete(clave),
+    },
     Event: class Event {},
-    window: { dispatchEvent() {}, confirm: () => { throw new Error('Agregar no debe pedir confirmación.'); }, setInterval: callback => { intervalos.add(callback); return callback; },
-      clearInterval: callback => intervalos.delete(callback), addEventListener() {}, removeEventListener() {} },
+    window: {
+      dispatchEvent() {},
+      confirm: () => {
+        throw new Error('Agregar no debe pedir confirmación.');
+      },
+      setInterval: (callback) => {
+        intervalos.add(callback);
+        return callback;
+      },
+      clearInterval: (callback) => intervalos.delete(callback),
+      addEventListener() {},
+      removeEventListener() {},
+    },
   });
   function render() {
     indice = 0;
     const hook = exports.default(1, 'token', idNegocio);
-    pendientes.splice(0).forEach(callback => callback());
+    pendientes.splice(0).forEach((callback) => callback());
     return hook;
   }
   return { render, intervalos, almacenamiento };
 }
 
-const producto = { idProducto: 3, idNegocio: 2, version: 1, nombre: 'Producto', precioBase: '10.00', stock: 5, imagenes: [] };
+const producto = {
+  idProducto: 3,
+  idNegocio: 2,
+  version: 1,
+  nombre: 'Producto',
+  precioBase: '10.00',
+  stock: 5,
+  imagenes: [],
+};
 // En el servidor simulado, el producto 9 es de otro vendedor.
-const vendedorDe = idProducto => idProducto === 9 ? 5 : 2;
-const esperar = () => new Promise(resolve => setImmediate(resolve));
+const vendedorDe = (idProducto) => (idProducto === 9 ? 5 : 2);
+const esperar = () => new Promise((resolve) => setImmediate(resolve));
 
 test('el aviso de conexión desaparece cuando una actualización del carrito tiene éxito', async () => {
   const servidor = { items: [], errorCarga: 'Failed to fetch' };
@@ -108,16 +173,34 @@ test('las siguientes consultas conservan el aviso de productos retirados', async
 });
 
 test('el carrito combina productos de distintos vendedores sin vaciarse', async () => {
-  const prueba = carritoPrueba(null, new Map([[3, 1], [9, 1]]));
+  const prueba = carritoPrueba(
+    null,
+    new Map([
+      [3, 1],
+      [9, 1],
+    ]),
+  );
   prueba.render();
   await esperar();
   await prueba.render().agregar(producto, 2);
   await prueba.render().agregar({ ...producto, idProducto: 9, idNegocio: 5 }, 1);
   const carrito = prueba.render().carrito;
-  assert.deepEqual(Array.from(carrito.items, item => [item.idProducto, item.idNegocio, item.cantidad]), [[3, 2, 2], [9, 5, 1]]);
-  assert.deepEqual(Array.from(carrito.vendedores, vendedor => vendedor.idNegocio), [2, 5]);
+  assert.deepEqual(
+    Array.from(carrito.items, (item) => [item.idProducto, item.idNegocio, item.cantidad]),
+    [
+      [3, 2, 2],
+      [9, 5, 1],
+    ],
+  );
+  assert.deepEqual(
+    Array.from(carrito.vendedores, (vendedor) => vendedor.idNegocio),
+    [2, 5],
+  );
   await prueba.render().quitar(3);
-  assert.deepEqual(Array.from(prueba.render().carrito.vendedores, vendedor => vendedor.idNegocio), [5]);
+  assert.deepEqual(
+    Array.from(prueba.render().carrito.vendedores, (vendedor) => vendedor.idNegocio),
+    [5],
+  );
 });
 
 test('confirmar vacía el carrito solo al tener éxito y bloquea un segundo envío simultáneo', async () => {
@@ -135,11 +218,17 @@ test('confirmar vacía el carrito solo al tener éxito y bloquea un segundo env�
 });
 
 test('si falla el checkout conserva el carrito y permite reintentar', async () => {
-  const servidor = { items: [{ idProducto: 3, version: 1, cantidad: 1 }], errorCheckout: true };
+  const servidor = {
+    items: [{ idProducto: 3, version: 1, cantidad: 1 }],
+    errorCheckout: true,
+  };
   const prueba = carritoPrueba(null, new Map([[3, 1]]), 1, servidor);
   prueba.render();
   await esperar();
-  await assert.rejects(prueba.render().confirmar({ total: '10.00' }), /Stock insuficiente/);
+  await assert.rejects(
+    prueba.render().confirmar({ total: '10.00' }),
+    /Stock insuficiente/,
+  );
   assert.equal(prueba.render().carrito.items.length, 1);
   assert.equal(prueba.render().procesando, false);
   servidor.errorCheckout = false;
@@ -155,7 +244,11 @@ test('no permite agregar productos del negocio propio', () => {
 });
 
 test('descarta carritos guardados del negocio propio', async () => {
-  const prueba = carritoPrueba({ idNegocio: 2, nombreNegocio: 'Propio', items: [{ ...producto, cantidad: 1 }] }, new Map([[3, 1]]), 2);
+  const prueba = carritoPrueba(
+    { idNegocio: 2, nombreNegocio: 'Propio', items: [{ ...producto, cantidad: 1 }] },
+    new Map([[3, 1]]),
+    2,
+  );
   prueba.render();
   await esperar();
   assert.equal(prueba.render().carrito, null);
@@ -181,7 +274,7 @@ test('editar un producto lo elimina del carrito conectado', async () => {
   await esperar();
   await prueba.render().agregar(producto, 2);
   versiones.set(3, 2);
-  await Promise.all([...prueba.intervalos].map(callback => callback()));
+  await Promise.all([...prueba.intervalos].map((callback) => callback()));
   const hook = prueba.render();
   assert.equal(hook.carrito, null);
   assert.match(hook.avisoCarrito, /retirados o modificados/);
@@ -203,22 +296,35 @@ test('volver a agregar una nueva versión no conserva cantidades ni precios de l
 });
 
 test('al volver a abrir se quitan productos eliminados y se conserva el resto', async () => {
-  const prueba = carritoPrueba({ idNegocio: 2, nombreNegocio: 'Marca', items: [
-    { ...producto, cantidad: 2 }, { ...producto, idProducto: 4, cantidad: 1 },
-  ] }, new Map([[4, 1]]));
+  const prueba = carritoPrueba(
+    {
+      idNegocio: 2,
+      nombreNegocio: 'Marca',
+      items: [
+        { ...producto, cantidad: 2 },
+        { ...producto, idProducto: 4, cantidad: 1 },
+      ],
+    },
+    new Map([[4, 1]]),
+  );
   prueba.render();
   await esperar();
-  assert.deepEqual(Array.from(prueba.render().carrito.items, item => item.idProducto), [4]);
+  assert.deepEqual(
+    Array.from(prueba.render().carrito.items, (item) => item.idProducto),
+    [4],
+  );
 });
 
 test('el carrito guardado se recupera en otro dispositivo', async () => {
   const servidor = { items: [] };
   const versiones = new Map([[3, 1]]);
   const primero = carritoPrueba(null, versiones, 1, servidor);
-  primero.render(); await esperar();
+  primero.render();
+  await esperar();
   await primero.render().agregar(producto, 3);
   const segundo = carritoPrueba(null, versiones, 1, servidor);
-  segundo.render(); await esperar();
+  segundo.render();
+  await esperar();
   assert.equal(segundo.render().carrito.items[0].cantidad, 3);
 });
 
@@ -226,17 +332,25 @@ test('un carrito local antiguo no reemplaza el carrito del servidor', async () =
   const servidor = { items: [{ idProducto: 3, version: 1, cantidad: 4 }] };
   const local = { idNegocio: 2, items: [{ ...producto, cantidad: 1 }] };
   const prueba = carritoPrueba(local, new Map([[3, 1]]), 1, servidor);
-  prueba.render(); await esperar();
+  prueba.render();
+  await esperar();
   assert.equal(prueba.render().carrito.items[0].cantidad, 4);
   assert.equal(prueba.almacenamiento.size, 0);
 });
 
 test('agregar respeta el mínimo de unidades y bloquea stock insuficiente', async () => {
-  const prueba = carritoPrueba(null, new Map([[3, 1]]), 1, { items: [], minimos: { 3: 3 } });
-  prueba.render(); await esperar();
+  const prueba = carritoPrueba(null, new Map([[3, 1]]), 1, {
+    items: [],
+    minimos: { 3: 3 },
+  });
+  prueba.render();
+  await esperar();
   await prueba.render().agregar({ ...producto, cantidadMinimaCompra: 3 }, 1);
   assert.equal(prueba.render().carrito.items[0].cantidad, 3);
   await prueba.render().actualizarCantidad(3, 1);
   assert.equal(prueba.render().carrito.items[0].cantidad, 3);
-  assert.equal(await prueba.render().agregar({ ...producto, cantidadMinimaCompra: 6 }, 6), false);
+  assert.equal(
+    await prueba.render().agregar({ ...producto, cantidadMinimaCompra: 6 }, 6),
+    false,
+  );
 });

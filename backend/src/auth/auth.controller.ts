@@ -1,3 +1,9 @@
+/**
+ * Rutas públicas /auth: reciben DTO ya validados y delegan registro o ingreso en
+ * AuthService.
+ * El controlador adapta HTTP; el servicio contiene la lógica y el acceso a la base.
+ */
+
 import { Body, Controller, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';

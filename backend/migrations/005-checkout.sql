@@ -1,3 +1,8 @@
+-- 005-checkout.sql
+-- Crea la estructura histórica del checkout inicial. La migración 006 la adapta luego
+-- a compras de varios vendedores.
+-- No ejecutar automáticamente: revisar DATABASE_URL y aplicar en el orden numérico.
+
 BEGIN;
 CREATE TABLE IF NOT EXISTS pedido (
   id_pedido serial PRIMARY KEY,

@@ -1,4 +1,20 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Request, UseGuards } from '@nestjs/common';
+/**
+ * Endpoints de categorías para vendedores autenticados.
+ * El servicio decide qué categorías puede usar o borrar el negocio indicado por el
+ * token.
+ */
+
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
@@ -18,12 +34,18 @@ export class CategoriasController {
   }
 
   @Post()
-  crear(@Request() request: { user: { idNegocio: number } }, @Body() dto: CrearCategoriaDto) {
+  crear(
+    @Request() request: { user: { idNegocio: number } },
+    @Body() dto: CrearCategoriaDto,
+  ) {
     return this.categorias.crear(request.user.idNegocio, dto.nombre);
   }
 
   @Delete(':id')
-  eliminar(@Param('id', ParseIntPipe) id: number, @Request() request: { user: { idNegocio: number } }) {
+  eliminar(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() request: { user: { idNegocio: number } },
+  ) {
     return this.categorias.eliminar(id, request.user.idNegocio);
   }
 }

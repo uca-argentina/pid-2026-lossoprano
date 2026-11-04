@@ -1,4 +1,16 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
+/**
+ * Autorización por rol: obtiene los roles declarados con @Roles y los compara con
+ * request.user.
+ * No decide la propiedad de productos o pedidos; esa comprobación corresponde al
+ * servicio que opera sobre ellos.
+ */
+
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { RolCliente } from '../users/user.entity';
 import { ROLES_KEY } from './roles.decorator';

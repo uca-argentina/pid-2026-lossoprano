@@ -1,9 +1,20 @@
+/**
+ * Editor de cantidades con un borrador de texto independiente del valor confirmado.
+ * Permite escribir números de varios dígitos sin guardar cada pulsación. Confirma al
+ * perder foco, pulsar Enter o usar flechas.
+ * Si falla el guardado, restaura la cantidad que tenía el servidor.
+ */
+
 import { useEffect, useRef, useState } from 'react';
 import { ItemCarrito } from './api';
 import { limitarCantidad } from './useCarrito';
 
-export default function CantidadCarrito({ item, alGuardar }: {
-  item: ItemCarrito; alGuardar: (cantidad: number) => Promise<boolean> | undefined;
+export default function CantidadCarrito({
+  item,
+  alGuardar,
+}: {
+  item: ItemCarrito;
+  alGuardar: (cantidad: number) => Promise<boolean> | undefined;
 }) {
   const [texto, setTexto] = useState(String(item.cantidad));
   const [guardando, setGuardando] = useState(false);
@@ -13,10 +24,18 @@ export default function CantidadCarrito({ item, alGuardar }: {
     if (!editando.current) setTexto(String(item.cantidad));
   }, [item.cantidad]);
 
+  /**
+   * Normaliza el borrador y lo guarda solo si difiere de la cantidad confirmada. El
+   * bloqueo en una referencia evita dos solicitudes antes del siguiente render.
+   */
   async function confirmar(valor = texto) {
     if (solicitudEnCurso.current) return;
     editando.current = false;
-    const cantidad = limitarCantidad(Number(valor), item.stock, item.cantidadMinimaCompra ?? 1);
+    const cantidad = limitarCantidad(
+      Number(valor),
+      item.stock,
+      item.cantidadMinimaCompra ?? 1,
+    );
     setTexto(String(cantidad));
     if (cantidad === item.cantidad) return;
     setGuardando(true);
@@ -24,31 +43,70 @@ export default function CantidadCarrito({ item, alGuardar }: {
     try {
       const guardado = await alGuardar(cantidad);
       if (!guardado) setTexto(String(item.cantidad));
-    } finally { solicitudEnCurso.current = false; setGuardando(false); }
+    } finally {
+      solicitudEnCurso.current = false;
+      setGuardando(false);
+    }
   }
 
+  /**
+   * Aplica el incremento/decremento sobre el texto que se está editando y pasa por la
+   * misma validación que el ingreso manual.
+   */
   function cambiar(paso: number) {
-    const base = Number.isFinite(Number(texto)) && texto !== '' ? Number(texto) : item.cantidad;
+    const base =
+      Number.isFinite(Number(texto)) && texto !== '' ? Number(texto) : item.cantidad;
     void confirmar(String(base + paso));
   }
 
-  return <div className="carrito-cantidad"><input type="number" aria-label={`Cantidad de ${item.nombre}`}
-    min={item.cantidadMinimaCompra ?? 1} max={item.stock} step={1}
-    value={texto} disabled={guardando}
-    onFocus={() => { editando.current = true; }}
-    onChange={evento => setTexto(evento.target.value)}
-    onBlur={() => { void confirmar(); }}
-    onKeyDown={evento => {
-      if (evento.key === 'Enter') { evento.preventDefault(); evento.currentTarget.blur(); }
-      if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
-        evento.preventDefault(); cambiar(evento.key === 'ArrowUp' ? 1 : -1);
-      }
-    }} />
-    <div className="carrito-cantidad-flechas">
-      <button type="button" aria-label={`Aumentar cantidad de ${item.nombre}`} disabled={guardando || Number(texto) >= item.stock}
-        onMouseDown={evento => evento.preventDefault()} onClick={() => cambiar(1)}>▴</button>
-      <button type="button" aria-label={`Disminuir cantidad de ${item.nombre}`} disabled={guardando || Number(texto) <= (item.cantidadMinimaCompra ?? 1)}
-        onMouseDown={evento => evento.preventDefault()} onClick={() => cambiar(-1)}>▾</button>
+  return (
+    <div className="carrito-cantidad">
+      <input
+        type="number"
+        aria-label={`Cantidad de ${item.nombre}`}
+        min={item.cantidadMinimaCompra ?? 1}
+        max={item.stock}
+        step={1}
+        value={texto}
+        disabled={guardando}
+        onFocus={() => {
+          editando.current = true;
+        }}
+        onChange={(evento) => setTexto(evento.target.value)}
+        onBlur={() => {
+          void confirmar();
+        }}
+        onKeyDown={(evento) => {
+          if (evento.key === 'Enter') {
+            evento.preventDefault();
+            evento.currentTarget.blur();
+          }
+          if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
+            evento.preventDefault();
+            cambiar(evento.key === 'ArrowUp' ? 1 : -1);
+          }
+        }}
+      />
+      <div className="carrito-cantidad-flechas">
+        <button
+          type="button"
+          aria-label={`Aumentar cantidad de ${item.nombre}`}
+          disabled={guardando || Number(texto) >= item.stock}
+          onMouseDown={(evento) => evento.preventDefault()}
+          onClick={() => cambiar(1)}
+        >
+          ▴
+        </button>
+        <button
+          type="button"
+          aria-label={`Disminuir cantidad de ${item.nombre}`}
+          disabled={guardando || Number(texto) <= (item.cantidadMinimaCompra ?? 1)}
+          onMouseDown={(evento) => evento.preventDefault()}
+          onClick={() => cambiar(-1)}
+        >
+          ▾
+        </button>
+      </div>
     </div>
-  </div>;
+  );
 }

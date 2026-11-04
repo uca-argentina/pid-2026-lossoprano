@@ -1,4 +1,19 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, VersionColumn } from 'typeorm';
+/**
+ * Producto comercial del catálogo: propietario, categoría, precios, mínimos, stock y
+ * rutas de fotos.
+ * La versión identifica cambios comerciales y permite detectar carritos obsoletos.
+ * Reponer o descontar stock conserva esa versión.
+ */
+
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  VersionColumn,
+} from 'typeorm';
 import { Negocio } from '../business/business.entity';
 import { Categoria } from '../categories/category.entity';
 import { PrecioEscalonado } from './price-tier.entity';
@@ -35,7 +50,7 @@ export class Producto {
   @Column({ name: 'precio_base', type: 'decimal', precision: 12, scale: 2 })
   precioBase: string;
 
-  @OneToMany(() => PrecioEscalonado, tramo => tramo.producto, { eager: true })
+  @OneToMany(() => PrecioEscalonado, (tramo) => tramo.producto, { eager: true })
   preciosEscalonados: PrecioEscalonado[];
 
   @Column('int')

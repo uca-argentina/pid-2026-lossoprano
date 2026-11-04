@@ -1,3 +1,8 @@
+-- 006-subordenes.sql
+-- Divide pedidos anteriores en subórdenes por vendedor conservando su información.
+-- Las nuevas compras usan un pedido general más sus subórdenes.
+-- No ejecutar automáticamente: revisar DATABASE_URL y aplicar en el orden numérico.
+
 BEGIN;
 CREATE TABLE IF NOT EXISTS suborden (
   id_suborden serial PRIMARY KEY,

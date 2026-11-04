@@ -1,3 +1,10 @@
+/**
+ * Entidad de cuenta autenticable (cliente): email, hash de contraseña, rol y negocio
+ * asociado.
+ * El hash no se selecciona por defecto y la relación se elimina en cascada al borrar
+ * el negocio.
+ */
+
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Negocio } from '../business/business.entity';
 

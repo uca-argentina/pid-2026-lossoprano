@@ -1,3 +1,9 @@
+/**
+ * Configura repositorios de cuentas/negocios, Passport y JWT con vencimiento de ocho
+ * horas.
+ * Registra la estrategia que interpreta el token enviado en Authorization: Bearer.
+ */
+
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
@@ -13,8 +19,15 @@ import { JwtStrategy } from './jwt.strategy';
   imports: [
     TypeOrmModule.forFeature([Cliente, Negocio]),
     PassportModule,
-    JwtModule.registerAsync({ inject: [ConfigService], useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET', 'development-secret'), signOptions: { expiresIn: '8h' } }) }),
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET', 'development-secret'),
+        signOptions: { expiresIn: '8h' },
+      }),
+    }),
   ],
-  controllers: [AuthController], providers: [AuthService, JwtStrategy],
+  controllers: [AuthController],
+  providers: [AuthService, JwtStrategy],
 })
 export class AuthModule {}

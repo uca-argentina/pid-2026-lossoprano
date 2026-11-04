@@ -1,3 +1,10 @@
+/**
+ * Adaptación HTTP del catálogo y subida multipart de fotos.
+ * JWT autentica; @Roles limita las escrituras a vendedores; los servicios controlan
+ * que el producto sea propio.
+ * Las imágenes se almacenan antes de guardar sus rutas en el producto.
+ */
+
 import {
   BadRequestException,
   Body,
@@ -35,7 +42,10 @@ const CANTIDAD_MAXIMA_IMAGENES = 5;
 @Controller('productos')
 @UseGuards(JwtAuthGuard)
 export class ProductosController {
-  constructor(private readonly productos: ProductosService, private readonly almacenamiento: ImagenesService) {}
+  constructor(
+    private readonly productos: ProductosService,
+    private readonly almacenamiento: ImagenesService,
+  ) {}
 
   @Post()
   @UseGuards(RolesGuard)
@@ -43,7 +53,8 @@ export class ProductosController {
   @UseInterceptors(
     FilesInterceptor('imagenes', CANTIDAD_MAXIMA_IMAGENES, {
       storage: memoryStorage(),
-      fileFilter: (_req, archivo, callback) => callback(null, TIPOS_PERMITIDOS.includes(archivo.mimetype)),
+      fileFilter: (_req, archivo, callback) =>
+        callback(null, TIPOS_PERMITIDOS.includes(archivo.mimetype)),
       limits: { fileSize: TAMANIO_MAXIMO },
     }),
   )
@@ -63,9 +74,12 @@ export class ProductosController {
   @Post('imagenes')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
-  @UseInterceptors(FileInterceptor('imagen', {
-    storage: memoryStorage(), limits: { fileSize: TAMANIO_MAXIMO },
-  }))
+  @UseInterceptors(
+    FileInterceptor('imagen', {
+      storage: memoryStorage(),
+      limits: { fileSize: TAMANIO_MAXIMO },
+    }),
+  )
   async subirImagen(
     @Request() request: { user: { idNegocio: number } },
     @UploadedFile() imagen?: Express.Multer.File,
@@ -74,35 +88,52 @@ export class ProductosController {
     return { url: await this.almacenamiento.guardar(imagen, request.user.idNegocio) };
   }
 
-  private async rutasImagenes(imagenes: Express.Multer.File[] | undefined, dto: CrearProductoDto, idNegocio: number) {
+  private async rutasImagenes(
+    imagenes: Express.Multer.File[] | undefined,
+    dto: CrearProductoDto,
+    idNegocio: number,
+  ) {
     const rutas = this.almacenamiento.validar(dto.imagenesSubidas ?? [], idNegocio);
     if (rutas.length + (imagenes?.length ?? 0) > CANTIDAD_MAXIMA_IMAGENES) {
       throw new BadRequestException('Seleccioná entre una y cinco imágenes.');
     }
-    for (const imagen of imagenes ?? []) rutas.push(await this.almacenamiento.guardar(imagen, idNegocio));
+    for (const imagen of imagenes ?? [])
+      rutas.push(await this.almacenamiento.guardar(imagen, idNegocio));
     return rutas;
   }
 
   @Get()
-  buscar(@Query() filtros: BuscarProductosDto, @Request() request: { user: { idNegocio: number } }) {
+  buscar(
+    @Query() filtros: BuscarProductosDto,
+    @Request() request: { user: { idNegocio: number } },
+  ) {
     return this.productos.buscar(filtros, request.user.idNegocio);
   }
 
   @Post('carrito/validar')
-  validarCarrito(@Body() dto: ValidarCarritoDto, @Request() request: { user: { idNegocio: number } }) {
+  validarCarrito(
+    @Body() dto: ValidarCarritoDto,
+    @Request() request: { user: { idNegocio: number } },
+  ) {
     return this.productos.validarCarrito(dto, request.user.idNegocio);
   }
 
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
-  @UseInterceptors(FilesInterceptor('imagenes', CANTIDAD_MAXIMA_IMAGENES, {
-    storage: memoryStorage(),
-    fileFilter: (_req, archivo, callback) => TIPOS_PERMITIDOS.includes(archivo.mimetype)
-      ? callback(null, true)
-      : callback(new BadRequestException('Las imágenes deben ser JPG, PNG o WebP.'), false),
-    limits: { fileSize: TAMANIO_MAXIMO },
-  }))
+  @UseInterceptors(
+    FilesInterceptor('imagenes', CANTIDAD_MAXIMA_IMAGENES, {
+      storage: memoryStorage(),
+      fileFilter: (_req, archivo, callback) =>
+        TIPOS_PERMITIDOS.includes(archivo.mimetype)
+          ? callback(null, true)
+          : callback(
+              new BadRequestException('Las imágenes deben ser JPG, PNG o WebP.'),
+              false,
+            ),
+      limits: { fileSize: TAMANIO_MAXIMO },
+    }),
+  )
   async actualizar(
     @Param('id', ParseIntPipe) id: number,
     @Request() request: { user: { idNegocio: number } },
@@ -110,7 +141,12 @@ export class ProductosController {
     @UploadedFiles() imagenes: Express.Multer.File[],
   ) {
     const rutas = await this.rutasImagenes(imagenes, dto, request.user.idNegocio);
-    return this.productos.actualizar(id, request.user.idNegocio, dto, rutas.length ? rutas : undefined);
+    return this.productos.actualizar(
+      id,
+      request.user.idNegocio,
+      dto,
+      rutas.length ? rutas : undefined,
+    );
   }
 
   @Patch(':id/stock')
@@ -127,7 +163,10 @@ export class ProductosController {
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
-  eliminar(@Param('id', ParseIntPipe) id: number, @Request() request: { user: { idNegocio: number } }) {
+  eliminar(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() request: { user: { idNegocio: number } },
+  ) {
     return this.productos.eliminar(id, request.user.idNegocio);
   }
 

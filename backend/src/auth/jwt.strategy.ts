@@ -1,3 +1,10 @@
+/**
+ * Extrae el JWT del encabezado, comprueba firma y vencimiento y devuelve sus datos
+ * como request.user.
+ * Los servicios que necesitan el negocio vigente también consultan la base; un token
+ * firmado no representa por sí solo una fila existente.
+ */
+
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';

@@ -1,4 +1,17 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+/**
+ * Tramo de precio por cantidad vinculado a un producto.
+ * precioParaCantidad elige el tramo más alto alcanzado o el precio base si la cantidad
+ * no alcanza ninguno.
+ */
+
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Producto } from './products.entity';
 
 // Desde cantidadMinima unidades, el precio unitario pasa a ser precioUnitario.
@@ -8,7 +21,9 @@ export class PrecioEscalonado {
   @PrimaryGeneratedColumn({ name: 'id_precio_escalonado' })
   idPrecioEscalonado: number;
 
-  @ManyToOne(() => Producto, producto => producto.preciosEscalonados, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Producto, (producto) => producto.preciosEscalonados, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'id_producto' })
   producto: Producto;
 
@@ -23,7 +38,11 @@ export class PrecioEscalonado {
 }
 
 // Devuelve el precio del tramo más alto alcanzado, o el precio base si no se alcanzó ninguno.
-export function precioParaCantidad(precioBase: string, tramos: Pick<PrecioEscalonado, 'cantidadMinima' | 'precioUnitario'>[], cantidad: number) {
+export function precioParaCantidad(
+  precioBase: string,
+  tramos: Pick<PrecioEscalonado, 'cantidadMinima' | 'precioUnitario'>[],
+  cantidad: number,
+) {
   let precio = precioBase;
   let mayor = 0;
   for (const tramo of tramos ?? []) {
