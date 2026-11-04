@@ -1,3 +1,10 @@
+/**
+ * Entidad del comercio que participa en el marketplace. Una cuenta está asociada a
+ * un negocio.
+ * El mínimo monetario pertenece al vendedor, no a cada producto; sus datos de contacto
+ * se usan en perfil y checkout.
+ */
+
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Cliente } from '../users/user.entity';
 
@@ -6,7 +13,13 @@ export class Negocio {
   @PrimaryGeneratedColumn({ name: 'id_negocio' })
   idNegocio: number;
 
-  @Column({ name: 'monto_minimo_orden', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  @Column({
+    name: 'monto_minimo_orden',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 0,
+  })
   montoMinimoOrden: string;
 
   @Column({ name: 'razon_social', length: 150 })

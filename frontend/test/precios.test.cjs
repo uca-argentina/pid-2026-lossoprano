@@ -1,3 +1,11 @@
+/**
+ * Pruebas de regresión del frontend con node:test.
+ * Los helpers transpilan TypeScript y sustituyen módulos/efectos para ejercitar lógica
+ * sin un navegador real.
+ * Estas pruebas no reemplazan una revisión visual: para estilos, foco o desplazamiento
+ * también hay que abrir la interfaz.
+ */
+
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -7,10 +15,17 @@ const ts = require('typescript');
 
 const modulo = {};
 const source = fs.readFileSync(path.join(__dirname, '../src/utils.ts'), 'utf8');
-vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText,
-  { exports: modulo, Intl, isNaN, parseFloat });
+vm.runInNewContext(
+  ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText,
+  { exports: modulo, Intl, isNaN, parseFloat },
+);
 const { precioParaCantidad, siguienteTramo } = modulo;
-const tramos = [{ cantidadMinima: 48, precioUnitario: '80.00' }, { cantidadMinima: 12, precioUnitario: '90.00' }];
+const tramos = [
+  { cantidadMinima: 48, precioUnitario: '80.00' },
+  { cantidadMinima: 12, precioUnitario: '90.00' },
+];
 
 test('el precio unitario usa el tramo más alto alcanzado', () => {
   assert.equal(precioParaCantidad('100.00', tramos, 11), '100.00');

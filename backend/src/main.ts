@@ -1,3 +1,9 @@
+/**
+ * Arranque de Nest: prefijo /api, CORS y validación de DTO para todas las rutas.
+ * En producción exige configuración explícita; en desarrollo también expone los
+ * archivos locales de uploads.
+ */
+
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';

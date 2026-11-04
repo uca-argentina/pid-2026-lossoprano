@@ -1,3 +1,9 @@
+/**
+ * Rutas GET/PUT /carrito para la cuenta del JWT.
+ * Responden JSON explícito, incluso null si está vacío, para que el cliente pueda
+ * distinguirlo de una respuesta sin cuerpo.
+ */
+
 import { Body, Controller, Get, Put, Request, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -13,7 +19,11 @@ export class CarritoController {
     respuesta.json(await this.carrito.obtener(req.user.sub));
   }
   @Put()
-  async guardar(@Request() req: { user: { sub: number } }, @Body() dto: GuardarCarritoDto, @Res() respuesta: Response) {
+  async guardar(
+    @Request() req: { user: { sub: number } },
+    @Body() dto: GuardarCarritoDto,
+    @Res() respuesta: Response,
+  ) {
     respuesta.json(await this.carrito.guardar(req.user.sub, dto));
   }
 }

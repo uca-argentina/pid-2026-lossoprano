@@ -1,4 +1,19 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Patch, Request, UseGuards } from '@nestjs/common';
+/**
+ * Endpoints /negocios/mi-negocio protegidos por JWT.
+ * La identidad se toma del token, evitando que el cliente elija otro negocio. La
+ * modificación del mínimo monetario está limitada al rol vendedor.
+ */
+
+import {
+  Body,
+  Controller,
+  Delete,
+  ForbiddenException,
+  Get,
+  Patch,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ActualizarNegocioDto } from './dto/update-business.dto';
 import { NegociosService } from './business.service';
@@ -19,7 +34,9 @@ export class NegociosController {
     @Body() dto: ActualizarNegocioDto,
   ) {
     if (dto.montoMinimoOrden !== undefined && request.user.rol !== 'VENDEDOR') {
-      throw new ForbiddenException('Solo los vendedores pueden definir un monto mínimo de pedido.');
+      throw new ForbiddenException(
+        'Solo los vendedores pueden definir un monto mínimo de pedido.',
+      );
     }
     return this.negocios.actualizar(request.user.idNegocio, dto);
   }

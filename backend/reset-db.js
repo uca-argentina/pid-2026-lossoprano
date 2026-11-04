@@ -1,3 +1,8 @@
+/**
+ * Script destructivo de mantenimiento: elimina y recrea la base de DATABASE_URL.
+ * No forma parte del arranque normal. Revisar el destino de DATABASE_URL y las operaciones antes de usarlo.
+ */
+
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');
@@ -8,7 +13,7 @@ const loadEnvFile = () => {
   if (fs.existsSync(envPath)) {
     const envContent = fs.readFileSync(envPath, 'utf8');
     const lines = envContent.split('\n');
-    lines.forEach(line => {
+    lines.forEach((line) => {
       line = line.trim();
       if (line && !line.startsWith('#') && line.includes('=')) {
         const [key, ...valueParts] = line.split('=');
@@ -55,7 +60,9 @@ const resetDatabase = async () => {
     console.log('Connected to postgres database');
 
     // Terminate all connections to the target database
-    await adminClient.query(`SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid();`);
+    await adminClient.query(
+      `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${databaseName}' AND pid <> pg_backend_pid();`,
+    );
     console.log(`Terminated existing connections to ${databaseName}`);
 
     // Drop the database if it exists
@@ -70,7 +77,6 @@ const resetDatabase = async () => {
 
     console.log('Database reset completed successfully!');
     console.log('You can now start your application and it will synchronize the schema.');
-
   } catch (error) {
     console.error('Error resetting database:', error.message);
     if (adminClient._connected) {

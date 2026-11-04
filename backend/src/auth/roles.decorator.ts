@@ -1,3 +1,8 @@
+/**
+ * Decorador @Roles: asocia roles permitidos a un controlador o método.
+ * RolesGuard lee estos metadatos después de autenticar al usuario.
+ */
+
 import { SetMetadata } from '@nestjs/common';
 import { RolCliente } from '../users/user.entity';
 

@@ -1,3 +1,8 @@
+-- 004-categorias-precios-escalonados.sql
+-- Transforma categorías de texto en entidades y agrega precios por cantidad. Conserva
+-- productos existentes; aplicar antes de sincronizar el esquema nuevo.
+-- No ejecutar automáticamente: revisar DATABASE_URL y aplicar en el orden numérico.
+
 -- Aplicar sobre bases existentes ANTES de iniciar la API (también en desarrollo):
 -- convierte la categoría de texto libre de cada producto en una fila de la tabla categoria.
 -- Se puede ejecutar más de una vez.

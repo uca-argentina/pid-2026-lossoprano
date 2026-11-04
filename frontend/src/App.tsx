@@ -1,3 +1,12 @@
+/**
+ * Entrada funcional de la interfaz: restaura la sesión guardada y decide entre
+ * ingreso, registro y panel autenticado.
+ * El panel mantiene la navegación por rol y coordina el carrito, pero delega cada
+ * pantalla en su componente.
+ * La sesión incluye JWT, cliente y negocio: cliente identifica la cuenta; negocio
+ * identifica al comercio que compra o vende.
+ */
+
 import { FormEvent, useEffect, useState, useRef } from 'react';
 import { api, Negocio, Rol, Sesion } from './api';
 import Comprador from './Comprador';
@@ -6,43 +15,111 @@ import useCarrito from './useCarrito';
 import PanelCarrito from './PanelCarrito';
 import Pedidos from './Pedidos';
 import Dashboard from './Dashboard';
+import Sorteos from './Sorteos';
 
 type Vista = 'ingreso' | 'registro';
-const negocioInicial = { razonSocial: '', nombreComercial: '', identificacionFiscal: '', telefono: '', direccion: '' };
+const negocioInicial = {
+  razonSocial: '',
+  nombreComercial: '',
+  identificacionFiscal: '',
+  telefono: '',
+  direccion: '',
+};
 const claveSesion = 'bulkmarket-sesion';
 
+/**
+ * Mantiene la sesión en memoria y localStorage. Sin sesión muestra autenticación; con
+ * sesión monta el panel del negocio.
+ */
 function App() {
-  const [sesion, setSesion] = useState<Sesion | null>(() => { const valor = localStorage.getItem(claveSesion); return valor ? JSON.parse(valor) : null; });
+  const [sesion, setSesion] = useState<Sesion | null>(() => {
+    const valor = localStorage.getItem(claveSesion);
+    return valor ? JSON.parse(valor) : null;
+  });
   const [vista, setVista] = useState<Vista>('ingreso');
 
-  const guardarSesion = (nuevaSesion: Sesion) => { localStorage.setItem(claveSesion, JSON.stringify(nuevaSesion)); setSesion(nuevaSesion); };
-  const cerrarSesion = () => { localStorage.removeItem(claveSesion); setSesion(null); };
+  const guardarSesion = (nuevaSesion: Sesion) => {
+    localStorage.setItem(claveSesion, JSON.stringify(nuevaSesion));
+    setSesion(nuevaSesion);
+  };
+  const cerrarSesion = () => {
+    localStorage.removeItem(claveSesion);
+    setSesion(null);
+  };
 
-  if (sesion) return <Panel sesion={sesion} guardarSesion={guardarSesion} cerrarSesion={cerrarSesion} />;
+  if (sesion)
+    return (
+      <Panel sesion={sesion} guardarSesion={guardarSesion} cerrarSesion={cerrarSesion} />
+    );
 
-  return <main className="auth-layout">
-            <section className="hero">
-                <h1>Comprá mejor.
-                    <br />
-                    <em>Vendé más.</em>
-                </h1>
-                <p>La plataforma que conecta comercios y marcas independientes para hacer negocios.</p>
-            </section>
-            <section className="auth-card">
-                <Marca />
-                <div className="tabs">
-                    <button className={vista === 'ingreso' ? 'active' : ''} onClick={() => setVista('ingreso')}>Ingresar</button>
-                    <button className={vista === 'registro' ? 'active' : ''} onClick={() => setVista('registro')}>Crear cuenta</button>
-                </div>{vista === 'ingreso' ? 
-                <Ingreso alIngresar={guardarSesion} alRegistrarse={() => setVista('registro')} /> : 
-                <Registro alRegistrarse={guardarSesion} />}
-            </section>
-        </main>;
+  return (
+    <main className="auth-layout">
+      <section className="hero">
+        <h1>
+          Comprá mejor.
+          <br />
+          <em>Vendé más.</em>
+        </h1>
+        <p>
+          La plataforma que conecta comercios y marcas independientes para hacer negocios.
+        </p>
+      </section>
+      <section className="auth-card">
+        <Marca />
+        <div className="tabs">
+          <button
+            className={vista === 'ingreso' ? 'active' : ''}
+            onClick={() => setVista('ingreso')}
+          >
+            Ingresar
+          </button>
+          <button
+            className={vista === 'registro' ? 'active' : ''}
+            onClick={() => setVista('registro')}
+          >
+            Crear cuenta
+          </button>
+        </div>
+        {vista === 'ingreso' ? (
+          <Ingreso
+            alIngresar={guardarSesion}
+            alRegistrarse={() => setVista('registro')}
+          />
+        ) : (
+          <Registro alRegistrarse={guardarSesion} />
+        )}
+      </section>
+    </main>
+  );
 }
 
-function Marca() { return <div className="brand" role="img" aria-label="Bulkmarket"><span className="brand-mark" aria-hidden="true">B</span><span className="brand-name" aria-hidden="true">bulk<span>market</span></span></div>; }
+/**
+ * Presenta la identidad visual reutilizada en navegación e ingreso.
+ */
+function Marca() {
+  return (
+    <div className="brand" role="img" aria-label="Bulkmarket">
+      <span className="brand-mark" aria-hidden="true">
+        B
+      </span>
+      <span className="brand-name" aria-hidden="true">
+        bulk<span>market</span>
+      </span>
+    </div>
+  );
+}
 
-function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) => void; alRegistrarse: () => void }) {
+/**
+ * Controla credenciales y estado de la solicitud. Al completar entrega la sesión a
+ * App.
+ */
+function Ingreso({
+  alIngresar,
+  alRegistrarse,
+}: {
+  alIngresar: (sesion: Sesion) => void;
+  alRegistrarse: () => void;
+}) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -80,10 +157,7 @@ function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) =
         requerido
       />
       <ErrorFormulario error={error} />
-      <button
-        className="primary"
-        disabled={cargando}
-      >
+      <button className="primary" disabled={cargando}>
         {cargando ? 'Ingresando…' : 'Ingresar a mi cuenta'}
       </button>
       <p className="footnote">
@@ -96,6 +170,10 @@ function Ingreso({ alIngresar, alRegistrarse }: { alIngresar: (sesion: Sesion) =
   );
 }
 
+/**
+ * Construye cuenta y negocio, valida los campos del formulario y delega la creación en
+ * la API.
+ */
 function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }) {
   const [rol, setRol] = useState<Rol>('COMPRADOR');
   const [email, setEmail] = useState('');
@@ -128,9 +206,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   return (
     <form className={`registro ${rol.toLowerCase()}`} onSubmit={enviar}>
       <h2>Creá tu cuenta</h2>
-      <p className="muted">
-        Completá los datos de tu negocio para operar en BulkMarket.
-      </p>
+      <p className="muted">Completá los datos de tu negocio para operar en BulkMarket.</p>
       <div className="role-selector">
         <button
           type="button"
@@ -223,22 +299,43 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
         requerido
       />
       <ErrorFormulario error={error} />
-      <button
-        className="primary"
-        disabled={cargando}
-      >
+      <button className="primary" disabled={cargando}>
         {cargando ? 'Creando cuenta…' : 'Crear cuenta gratis'}
       </button>
     </form>
   );
 }
 
-type Seccion = 'explorar' | 'perfil' | 'productos' | 'compras' | 'pedidos' | 'dashboard';
+type Seccion =
+  | 'explorar'
+  | 'perfil'
+  | 'productos'
+  | 'compras'
+  | 'pedidos'
+  | 'dashboard'
+  | 'sorteos';
 
-function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guardarSesion: (sesion: Sesion) => void; cerrarSesion: () => void }) {
-  const estadoCarrito = useCarrito(sesion.cliente.idCliente, sesion.accessToken, sesion.negocio.idNegocio);
+/**
+ * Coordina secciones y menú adaptable según el rol. Mantiene un solo hook de carrito
+ * para compartir estado entre catálogo y panel lateral.
+ */
+function Panel({
+  sesion,
+  guardarSesion,
+  cerrarSesion,
+}: {
+  sesion: Sesion;
+  guardarSesion: (sesion: Sesion) => void;
+  cerrarSesion: () => void;
+}) {
+  const estadoCarrito = useCarrito(
+    sesion.cliente.idCliente,
+    sesion.accessToken,
+    sesion.negocio.idNegocio,
+  );
   const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const unidadesCarrito = estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
+  const unidadesCarrito =
+    estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
   const esComprador = sesion.cliente.rol === 'COMPRADOR';
   const [seccion, setSeccion] = useState<Seccion>(esComprador ? 'explorar' : 'perfil');
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -259,7 +356,9 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
         menuBotonRef.current?.focus();
       }
     };
-    const cerrarEnEscritorio = () => { if (window.innerWidth > 1100) setMenuAbierto(false); };
+    const cerrarEnEscritorio = () => {
+      if (window.innerWidth > 1100) setMenuAbierto(false);
+    };
     document.addEventListener('pointerdown', cerrarAlSalir);
     document.addEventListener('keydown', cerrarConEscape);
     window.addEventListener('resize', cerrarEnEscritorio);
@@ -270,16 +369,20 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
     };
   }, [menuAbierto]);
 
+  /**
+   * Cambia de sección y cierra el menú móvil. Un doble clic sobre la sección actual
+   * incrementa una clave para remontar su contenido.
+   */
   const handleTabClick = (targetSection: Seccion) => {
     setMenuAbierto(false);
     if (menuAbierto) menuBotonRef.current?.focus();
     const now = Date.now();
     const timeSinceLastClick = now - lastClickRef.current;
 
-    // If clicking the same section and it's a double click (within 300ms)
+    // Un segundo clic en la misma sección dentro de 300 ms se interpreta como recarga.
     if (targetSection === seccion && timeSinceLastClick < 300) {
-      // Trigger a refresh by incrementing refresh key
-      setRefreshKey(prev => prev + 1);
+      // Cambiar la clave remonta la pantalla y reinicia sus consultas.
+      setRefreshKey((prev) => prev + 1);
     } else {
       setSeccion(targetSection);
     }
@@ -289,7 +392,12 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
 
   const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
     const { idNegocio, ...datos } = sesion.negocio;
-    return { ...datos, montoMinimoOrden: datos.montoMinimoOrden ?? '0.00', identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11), telefono: soloDigitos(datos.telefono, 10) };
+    return {
+      ...datos,
+      montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
+      identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
+      telefono: soloDigitos(datos.telefono, 10),
+    };
   });
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
@@ -305,25 +413,41 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
     setError('');
     try {
       const { montoMinimoOrden, ...datos } = negocio;
-      const actualizado = await api.actualizarNegocio(esComprador ? datos : negocio, sesion.accessToken);
+      const actualizado = await api.actualizarNegocio(
+        esComprador ? datos : negocio,
+        sesion.accessToken,
+      );
       guardarSesion({ ...sesion, negocio: actualizado });
       setMensaje('Los datos del negocio se actualizaron correctamente.');
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'No se pudieron guardar los cambios.');
+      setError(
+        error instanceof Error ? error.message : 'No se pudieron guardar los cambios.',
+      );
     } finally {
       setCargando(false);
     }
   }
 
+  /**
+   * Pide confirmación de la baja y cierra la sesión después de que la API elimina el
+   * negocio.
+   */
   async function eliminarNegocio() {
-    if (!window.confirm(`¿Seguro que querés eliminar ${negocio.nombreComercial}? Esta acción eliminará el negocio y sus clientes asociados, y no se puede deshacer.`)) return;
+    if (
+      !window.confirm(
+        `¿Seguro que querés eliminar ${negocio.nombreComercial}? Esta acción eliminará el negocio y sus clientes asociados, y no se puede deshacer.`,
+      )
+    )
+      return;
     setEliminando(true);
     setError('');
     try {
       await api.eliminarNegocio(sesion.accessToken);
       cerrarSesion();
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'No se pudo eliminar el negocio.');
+      setError(
+        error instanceof Error ? error.message : 'No se pudo eliminar el negocio.',
+      );
     } finally {
       setEliminando(false);
     }
@@ -337,84 +461,159 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
       <header className="navbar">
         <Marca />
         <div className="navbar-navigation" ref={navegacionRef}>
-          <button type="button" className="navbar-menu-toggle" ref={menuBotonRef}
-            aria-expanded={menuAbierto} aria-controls="navegacion-principal" onClick={() => setMenuAbierto(abierto => !abierto)}>
-            <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d={menuAbierto ? 'M6 6l12 12M6 18L18 6' : 'M4 6h16M4 12h16M4 18h16'} />
+          <button
+            type="button"
+            className="navbar-menu-toggle"
+            ref={menuBotonRef}
+            aria-expanded={menuAbierto}
+            aria-controls="navegacion-principal"
+            onClick={() => setMenuAbierto((abierto) => !abierto)}
+          >
+            <svg
+              aria-hidden="true"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            >
+              <path
+                d={menuAbierto ? 'M6 6l12 12M6 18L18 6' : 'M4 6h16M4 12h16M4 18h16'}
+              />
             </svg>
             Menú
           </button>
-        <nav id="navegacion-principal" className={`navbar-tabs${menuAbierto ? ' abierto' : ''}`} aria-label="Navegación principal">
-          {!esComprador && <button
-            type="button"
-            className={`nav-tab ${seccion === 'dashboard' ? 'active' : ''}`}
-            aria-current={seccion === 'dashboard' ? 'page' : undefined}
-            onClick={() => handleTabClick('dashboard')}
+          <nav
+            id="navegacion-principal"
+            className={`navbar-tabs${menuAbierto ? ' abierto' : ''}`}
+            aria-label="Navegación principal"
           >
-            Dashboard
-          </button>}
-          <button
-            type="button"
-            className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
-            aria-current={seccion === 'perfil' ? 'page' : undefined}
-            onClick={() => handleTabClick('perfil')}
-          >
-            Perfil
-          </button>
-          {!esComprador && (
+            {!esComprador && (
+              <button
+                type="button"
+                className={`nav-tab ${seccion === 'dashboard' ? 'active' : ''}`}
+                aria-current={seccion === 'dashboard' ? 'page' : undefined}
+                onClick={() => handleTabClick('dashboard')}
+              >
+                Dashboard
+              </button>
+            )}
             <button
               type="button"
-              className={`nav-tab ${seccion === 'productos' ? 'active' : ''}`}
-              aria-current={seccion === 'productos' ? 'page' : undefined}
-              onClick={() => handleTabClick('productos')}
+              className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
+              aria-current={seccion === 'perfil' ? 'page' : undefined}
+              onClick={() => handleTabClick('perfil')}
             >
-              Mis Productos
+              Perfil
             </button>
-          )}
-          <button
-            type="button"
-            className={`nav-tab ${seccion === 'compras' ? 'active' : ''}`}
-            aria-current={seccion === 'compras' ? 'page' : undefined}
-            onClick={() => handleTabClick('compras')}
-          >
-            Mis Compras
-          </button>
-          {!esComprador && <button
-            type="button"
-            className={`nav-tab ${seccion === 'pedidos' ? 'active' : ''}`}
-            aria-current={seccion === 'pedidos' ? 'page' : undefined}
-            onClick={() => handleTabClick('pedidos')}
-          >
-            Pedidos
-          </button>}
-          <button
-            type="button"
-            className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
-            aria-current={seccion === 'explorar' ? 'page' : undefined}
-            onClick={() => handleTabClick('explorar')}
-          >
-            Explorar
-          </button>
-        </nav>
+            {!esComprador && (
+              <button
+                type="button"
+                className={`nav-tab ${seccion === 'productos' ? 'active' : ''}`}
+                aria-current={seccion === 'productos' ? 'page' : undefined}
+                onClick={() => handleTabClick('productos')}
+              >
+                Mis Productos
+              </button>
+            )}
+            <button
+              type="button"
+              className={`nav-tab ${seccion === 'compras' ? 'active' : ''}`}
+              aria-current={seccion === 'compras' ? 'page' : undefined}
+              onClick={() => handleTabClick('compras')}
+            >
+              Mis Compras
+            </button>
+            {!esComprador && (
+              <button
+                type="button"
+                className={`nav-tab ${seccion === 'pedidos' ? 'active' : ''}`}
+                aria-current={seccion === 'pedidos' ? 'page' : undefined}
+                onClick={() => handleTabClick('pedidos')}
+              >
+                Pedidos
+              </button>
+            )}
+            <button
+              type="button"
+              className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
+              aria-current={seccion === 'explorar' ? 'page' : undefined}
+              onClick={() => handleTabClick('explorar')}
+            >
+              Explorar
+            </button>
+            <button
+              type="button"
+              className={`nav-tab ${seccion === 'sorteos' ? 'active' : ''}`}
+              aria-current={seccion === 'sorteos' ? 'page' : undefined}
+              onClick={() => handleTabClick('sorteos')}
+            >
+              Sorteos
+            </button>
+          </nav>
         </div>
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
-          <button type="button" className="carrito-boton navbar-carrito" onClick={() => setCarritoAbierto(true)}
-            aria-label={`Abrir carrito, ${unidadesCarrito} unidades`} aria-haspopup="dialog" aria-expanded={carritoAbierto}>
-            <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 3h2l3 12h11l2-8H6" /><circle cx="9" cy="20" r="1" /><circle cx="18" cy="20" r="1" />
+          <button
+            type="button"
+            className="carrito-boton navbar-carrito"
+            onClick={() => setCarritoAbierto(true)}
+            aria-label={`Abrir carrito, ${unidadesCarrito} unidades`}
+            aria-haspopup="dialog"
+            aria-expanded={carritoAbierto}
+          >
+            <svg
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 3h2l3 12h11l2-8H6" />
+              <circle cx="9" cy="20" r="1" />
+              <circle cx="18" cy="20" r="1" />
             </svg>
             <span className="carrito-text">Carrito</span>
-            {unidadesCarrito > 0 && <span className="carrito-badge" aria-hidden="true">{unidadesCarrito}</span>}
+            {unidadesCarrito > 0 && (
+              <span className="carrito-badge" aria-hidden="true">
+                {unidadesCarrito}
+              </span>
+            )}
           </button>
-          <button type="button" className="logout" aria-label="Cerrar sesión" title="Cerrar sesión" onClick={cerrarSesion}>
+          <button
+            type="button"
+            className="logout"
+            aria-label="Cerrar sesión"
+            title="Cerrar sesión"
+            onClick={cerrarSesion}
+          >
             <span className="logout-text">Cerrar sesión</span>
-            <svg className="logout-icon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              className="logout-icon"
+              aria-hidden="true"
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M9 5H5v14h4M14 8l4 4-4 4M9 12h9" />
             </svg>
           </button>
         </div>
       </header>
+      {seccion === 'sorteos' && (
+        <Sorteos key={`sorteos-${refreshKey}`} token={sesion.accessToken} />
+      )}
       {!esComprador && seccion === 'dashboard' && (
         <div key={`dashboard-${refreshKey}`}>
           <Dashboard token={sesion.accessToken} />
@@ -422,7 +621,12 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
       )}
       {seccion === 'explorar' && (
         <div key={`explorar-${refreshKey}`}>
-          <Comprador token={sesion.accessToken} idNegocio={sesion.negocio.idNegocio} estadoCarrito={estadoCarrito} abrirCarrito={() => setCarritoAbierto(true)} />
+          <Comprador
+            token={sesion.accessToken}
+            idNegocio={sesion.negocio.idNegocio}
+            estadoCarrito={estadoCarrito}
+            abrirCarrito={() => setCarritoAbierto(true)}
+          />
         </div>
       )}
       {seccion === 'perfil' && (
@@ -436,7 +640,9 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
             <section className="business-panel" id="perfil">
               <div>
                 <h2>Perfil del negocio</h2>
-                <p className="muted">Mantené actualizada la información comercial y de contacto.</p>
+                <p className="muted">
+                  Mantené actualizada la información comercial y de contacto.
+                </p>
               </div>
               <form onSubmit={enviar}>
                 <div className="form-grid">
@@ -489,25 +695,38 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
                     />
                   </div>
                 </div>
-                {!esComprador && <label className="field">
-                  <span>Monto mínimo por pedido</span>
-                  <input type="number" min="0" max="9999999999.99" step="0.01" required
-                    value={negocio.montoMinimoOrden ?? '0.00'} onChange={evento => actualizar('montoMinimoOrden')(evento.target.value)} />
-                  <small>Importe mínimo del pedido en dinero. Usá 0 si no exigís un mínimo.</small>
-                </label>}
+                {!esComprador && (
+                  <label className="field">
+                    <span>Monto mínimo por pedido</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="9999999999.99"
+                      step="0.01"
+                      required
+                      value={negocio.montoMinimoOrden ?? '0.00'}
+                      onChange={(evento) =>
+                        actualizar('montoMinimoOrden')(evento.target.value)
+                      }
+                    />
+                    <small>
+                      Importe mínimo del pedido en dinero. Usá 0 si no exigís un mínimo.
+                    </small>
+                  </label>
+                )}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}
-                <button
-                  className="primary"
-                  disabled={cargando || eliminando}
-                >
+                <button className="primary" disabled={cargando || eliminando}>
                   {cargando ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </form>
               <section className="danger-zone" aria-labelledby="delete-business-title">
                 <div>
                   <h2 id="delete-business-title">Eliminar negocio</h2>
-                  <p>Esta acción elimina permanentemente el negocio y los clientes asociados.</p>
+                  <p>
+                    Esta acción elimina permanentemente el negocio y los clientes
+                    asociados.
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -530,7 +749,9 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
               <h1>Gestioná tus productos</h1>
               <p>Creá y administrá los productos de tu negocio.</p>
             </section>
-            {sesion.cliente.rol === 'VENDEDOR' && <CrearProducto token={sesion.accessToken} />}
+            {sesion.cliente.rol === 'VENDEDOR' && (
+              <CrearProducto token={sesion.accessToken} />
+            )}
           </>
         </div>
       )}
@@ -544,30 +765,98 @@ function Panel({ sesion, guardarSesion, cerrarSesion }: { sesion: Sesion; guarda
           <Pedidos token={sesion.accessToken} tipo="ventas" />
         </div>
       )}
-      {carritoAbierto && <PanelCarrito estado={estadoCarrito} direccionInicial={sesion.negocio.direccion} alCerrar={() => setCarritoAbierto(false)} />}
+      {carritoAbierto && (
+        <PanelCarrito
+          estado={estadoCarrito}
+          direccionInicial={sesion.negocio.direccion}
+          alCerrar={() => setCarritoAbierto(false)}
+        />
+      )}
     </main>
   );
 }
 
-function soloDigitos(valor: string, maximoDigitos: number) { return valor.replace(/\D/g, '').slice(0, maximoDigitos); }
-function formatearCuit(valor: string) { const digitos = soloDigitos(valor, 11); if (digitos.length <= 2) return digitos; if (digitos.length <= 10) return `${digitos.slice(0, 2)}-${digitos.slice(2)}`; return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`; }
-function formatearTelefono(valor: string) { const digitos = soloDigitos(valor, 10); if (digitos.length <= 2) return digitos; if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`; return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)}-${digitos.slice(6)}`; }
-function Campo({ etiqueta, valor, alCambiar, tipo = 'text', hint, requerido = false, soloNumeros = false, maximoDigitos, formatear, minDigitos, exactDigitos, ...props }: { etiqueta: string; valor: string; alCambiar: (valor: string) => void; tipo?: string; hint?: string; soloNumeros?: boolean; maximoDigitos?: number; formatear?: (valor: string) => string; placeholder?: string; requerido?: boolean; inputMode?: 'numeric'; maxLength?: number; pattern?: string; title?: string; minDigitos?: number; exactDigitos?: number }) {
+function soloDigitos(valor: string, maximoDigitos: number) {
+  return valor.replace(/\D/g, '').slice(0, maximoDigitos);
+}
+function formatearCuit(valor: string) {
+  const digitos = soloDigitos(valor, 11);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 10) return `${digitos.slice(0, 2)}-${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`;
+}
+function formatearTelefono(valor: string) {
+  const digitos = soloDigitos(valor, 10);
+  if (digitos.length <= 2) return digitos;
+  if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`;
+  return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
+}
+function Campo({
+  etiqueta,
+  valor,
+  alCambiar,
+  tipo = 'text',
+  hint,
+  requerido = false,
+  soloNumeros = false,
+  maximoDigitos,
+  formatear,
+  minDigitos,
+  exactDigitos,
+  ...props
+}: {
+  etiqueta: string;
+  valor: string;
+  alCambiar: (valor: string) => void;
+  tipo?: string;
+  hint?: string;
+  soloNumeros?: boolean;
+  maximoDigitos?: number;
+  formatear?: (valor: string) => string;
+  placeholder?: string;
+  requerido?: boolean;
+  inputMode?: 'numeric';
+  maxLength?: number;
+  pattern?: string;
+  title?: string;
+  minDigitos?: number;
+  exactDigitos?: number;
+}) {
   const valorVisible = formatear ? formatear(valor) : valor;
   const patron = props.pattern?.split('\\\\').join('\\');
-  return <label className="field"><span>{etiqueta}</span><input type={tipo} value={valorVisible} onChange={(evento) => {
-    let input = evento.target.value;
-    if (soloNumeros) {
-      const digitsOnly = input.replace(/\D/g, '');
-      let max = maximoDigitos ?? Number.MAX_SAFE_INTEGER;
-      if (exactDigitos !== undefined) {
-        max = exactDigitos;
-      }
-      const limited = digitsOnly.slice(0, max);
-      alCambiar(soloDigitos(limited, max));
-    } else {
-      alCambiar(input);
-    }
-  }} {...props} required={requerido} pattern={patron} />{hint && <small>{hint}</small>}</label>; }
-function ErrorFormulario({ error }: { error: string }) { return error ? <p className="error" role="alert">{error}</p> : null; }
+  return (
+    <label className="field">
+      <span>{etiqueta}</span>
+      <input
+        type={tipo}
+        value={valorVisible}
+        onChange={(evento) => {
+          let input = evento.target.value;
+          if (soloNumeros) {
+            const digitsOnly = input.replace(/\D/g, '');
+            let max = maximoDigitos ?? Number.MAX_SAFE_INTEGER;
+            if (exactDigitos !== undefined) {
+              max = exactDigitos;
+            }
+            const limited = digitsOnly.slice(0, max);
+            alCambiar(soloDigitos(limited, max));
+          } else {
+            alCambiar(input);
+          }
+        }}
+        {...props}
+        required={requerido}
+        pattern={patron}
+      />
+      {hint && <small>{hint}</small>}
+    </label>
+  );
+}
+function ErrorFormulario({ error }: { error: string }) {
+  return error ? (
+    <p className="error" role="alert">
+      {error}
+    </p>
+  ) : null;
+}
 export default App;

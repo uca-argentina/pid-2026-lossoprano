@@ -1,3 +1,8 @@
+/**
+ * Ejecutor manual de una migración SQL sobre DATABASE_URL.
+ * Lee el entorno local como respaldo, abre la conexión y ejecuta el archivo elegido. No ejecutar por accidente contra una base compartida.
+ */
+
 const { Client } = require('pg');
 const fs = require('fs');
 const path = require('path');

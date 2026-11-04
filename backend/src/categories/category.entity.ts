@@ -1,4 +1,17 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+/**
+ * Categorías generales (sin dueño) y categorías propias de un negocio.
+ * La clave normalizada permite detectar nombres equivalentes con diferencias de
+ * mayúsculas, acentos o espacios.
+ */
+
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { Negocio } from '../business/business.entity';
 
 // Sin negocio es una categoría general, visible para todos los vendedores.
@@ -24,10 +37,28 @@ export class Categoria {
 }
 
 export function claveCategoria(nombre: string) {
-  return nombre.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').toLocaleLowerCase('es');
+  return nombre
+    .trim()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('es');
 }
 
 export const CATEGORIAS_GENERALES = [
-  'Alimentos', 'Bebidas', 'Perfumería', 'Cosmética', 'Higiene personal', 'Limpieza', 'Indumentaria', 'Calzado',
-  'Accesorios', 'Hogar y decoración', 'Librería y papelería', 'Electrónica', 'Ferretería', 'Juguetes', 'Mascotas',
+  'Alimentos',
+  'Bebidas',
+  'Perfumería',
+  'Cosmética',
+  'Higiene personal',
+  'Limpieza',
+  'Indumentaria',
+  'Calzado',
+  'Accesorios',
+  'Hogar y decoración',
+  'Librería y papelería',
+  'Electrónica',
+  'Ferretería',
+  'Juguetes',
+  'Mascotas',
 ];

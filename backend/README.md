@@ -1,6 +1,26 @@
 # BulkMarket API
 
+Para recorrer controladores, DTO, servicios, entidades y reglas comerciales, consultá la [guía de estudio](../GUIA_DE_ESTUDIO.md). Los archivos incluyen comentarios en español y el formato común se mantiene desde la raíz con `npm run format`.
+
 API de BulkMarket para autenticación JWT y administración del negocio asociado a cada cuenta.
+
+## Sorteos simulados
+
+Compradores y vendedores comparten un sorteo cada 14 días. Los períodos comienzan a las 00:00 de Argentina, anclados al lunes 5 de enero de 2026; no son quincenas calendario. La fecha de entrega de cada suborden determina el período. Cada centavo comprado o vendido suma el mismo peso, sin mínimo adicional. Un negocio que compra y vende acumula ambos importes. Solo participan los negocios registrados al realizar el sorteo; las operaciones históricas de negocios eliminados siguen financiando el fondo.
+
+La configuración central está en `src/sweepstakes/sweepstakes.rules.ts`: comisión simulada de 15% y asignación de 2/15 de esa comisión al premio (equivalente a 2% de ventas antes del redondeo). El resto corresponde a la plataforma (13%). Una venta de $5.000 genera $750 de comisión, $100 de premio y $650 para la plataforma. Se redondea por suborden a centavos, primero comisión y luego aporte. Cada suborden financia una sola vez el premio, aunque ambas partes reciban peso. **No se cobran comisiones, no se alteran los importes del checkout ni se realizan pagos.**
+
+`GET /sorteos` consulta el período actual y los últimos 12 resultados. `POST /sorteos/actualizar`, llamado al abrir o actualizar Sorteos, cierra los períodos vencidos con actividad y devuelve el resumen. Ambos requieren JWT y usan el negocio del token. No reciben importes, ganador, fechas ni probabilidades del cliente. En esta demo no hay un proceso programado: el cierre ocurre en la siguiente visita o actualización, usando las entregas del período correspondiente. No hay sorteos vacíos; un fondo redondeado a cero o sin participantes elegibles se registra sin ganador.
+
+La selección ponderada usa aleatoriedad del servidor y aritmética entera. La tabla `sorteo` conserva participantes, reglas, fondo y ganador sin cascadas desde negocios. La clave primaria por inicio y un bloqueo transaccional evitan repetir el sorteo; las entregas comparten ese bloqueo para no quedar fuera del cierre. La API expone solo el monto y las chances del negocio autenticado, el número total de participantes y el nombre comercial del ganador.
+
+**Probar el cierre completo sin esperar:** en desarrollo, `POST /sorteos/reloj` recibe `{ fecha: "2026-11-09T00:00:00-03:00" }` y adelanta el reloj compartido. Al atravesar un cierre, guarda el ganador en `sorteo`, lo muestra en historial y comienza un período con fondo y chances en cero. No fabrica pedidos ni participantes. La UI precarga el próximo cierre en el campo de fecha y hora de Argentina. Los períodos sin entregas no generan un ganador.
+
+El reloj guarda un desfase respecto a la hora real en `sorteo_reloj`, sigue avanzando y sobrevive a recargas y reinicios. Las nuevas entregas usan ese mismo reloj, por lo que se asignan al período siguiente. Fecha, cierre y ganador se guardan en una única transacción con el mismo bloqueo de las entregas. Solo permite avanzar: no reabre períodos ni vuelve a sortear ganadores guardados. Se comparte entre todas las cuentas de esta base de desarrollo. `relojPrueba.habilitado` controla la UI; en producción o Vercel el endpoint responde 404 y siempre se usa la hora real. El antiguo endpoint de vista previa `simular-cierre` fue retirado.
+
+La tabla del reloj corresponde a `migrations/008-sorteos-reloj.sql` (`npm run migrar:reloj-sorteos`), después de la 007. En desarrollo se crea al reiniciar la API.
+
+En producción aplicar `npm run migrar:sorteos` después de las migraciones anteriores. En desarrollo TypeORM crea la tabla al reiniciar la API. `npm run test:sorteos` verifica las reglas sin base; `npm test` también incluye el cierre y la persistencia dentro de la integración con PostgreSQL y tablas temporales. No se aplicó la migración a una base compartida.
 
 Para publicar frontend, API, base de datos e imágenes en la nube, seguí [la guía de despliegue](../DEPLOYMENT.md).
 
