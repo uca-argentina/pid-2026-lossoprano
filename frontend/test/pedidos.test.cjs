@@ -118,6 +118,13 @@ async function pantalla(tipo = 'compras') {
       react,
       'react/jsx-runtime': jsx,
       './utils': cargar('utils.ts', {}),
+      // Reclamos se renderiza como hijo con React real: sus hooks no usan el mock.
+      './Reclamos': cargar('Reclamos.tsx', {
+        react: require('react'),
+        'react/jsx-runtime': jsx,
+        './utils': cargar('utils.ts', {}),
+        './api': { api: {} },
+      }),
       './api': {
         api: {
           misCompras: async () => {
@@ -145,7 +152,8 @@ async function pantalla(tipo = 'compras') {
   function boton(nodo, texto) {
     if (!nodo || typeof nodo !== 'object') return;
     if (nodo.type === 'button' && nodo.props.children === texto) return nodo;
-    for (const hijo of [nodo.props?.children].flat(Infinity)) {
+    // Los botones de estado llegan a TarjetaSuborden por la prop acciones.
+    for (const hijo of [nodo.props?.children, nodo.props?.acciones].flat(Infinity)) {
       const encontrado = boton(hijo, texto);
       if (encontrado) return encontrado;
     }
@@ -282,3 +290,84 @@ for (const rol of ['COMPRADOR', 'VENDEDOR']) {
     else assert.doesNotMatch(html, /<button[^>]*>Dashboard<\/button>/);
   });
 }
+
+test('una compra entregada dentro del plazo ofrece iniciar un reclamo', async () => {
+  const p = await pantalla();
+  Object.assign(p.datos[0].subordenes[0], {
+    estado: 'ENTREGADA',
+    entregadaEn: '2026-10-14T12:00:00Z',
+    limiteReclamo: '2026-10-21T12:00:00Z',
+    puedeReclamar: true,
+    reclamos: [],
+  });
+  assert.match(p.html(), /Iniciar reclamo/);
+  assert.match(p.html(), /Podés iniciar un reclamo hasta/);
+  p.datos[0].subordenes[0].puedeReclamar = false;
+  assert.doesNotMatch(p.html(), /Iniciar reclamo/);
+  assert.match(p.html(), /El plazo para reclamar venció/);
+});
+
+test('el comprador ve la nota de crédito y el motivo de rechazo del vendedor', async () => {
+  const p = await pantalla();
+  const reclamo = {
+    idSuborden: 1,
+    items: [{ idProducto: 1, nombre: 'Producto activo', cantidad: 1, subtotal: '10.00' }],
+    motivo: 'Llegó roto',
+    importe: '10.00',
+    creadoEn: '2026-10-15T12:00:00Z',
+    resueltoEn: '2026-10-16T12:00:00Z',
+    recibidoEn: null,
+  };
+  Object.assign(p.datos[0].subordenes[0], {
+    estado: 'ENTREGADA',
+    puedeReclamar: true,
+    limiteReclamo: '2026-10-21T12:00:00Z',
+    reclamos: [
+      {
+        ...reclamo,
+        idReclamo: 1,
+        estado: 'APROBADO',
+        notaCredito: 'NC-0001-00000001',
+        motivoRechazo: null,
+      },
+      {
+        ...reclamo,
+        idReclamo: 2,
+        estado: 'RECHAZADO',
+        notaCredito: null,
+        motivoRechazo: 'Fuera de política',
+      },
+    ],
+  });
+  const html = p.html();
+  assert.match(html, /NC-0001-00000001/);
+  assert.match(html, /Respuesta del vendedor: Fuera de política/);
+  assert.doesNotMatch(html, /Aprobar y emitir|Confirmar recepción/);
+});
+
+test('una venta entregada con reclamo abierto sigue en recibidos hasta resolverse', async () => {
+  const p = await pantalla('ventas');
+  const entregada = p.ventas.find((v) => v.estado === 'ENTREGADA');
+  entregada.reclamos = [
+    {
+      idReclamo: 7,
+      idSuborden: entregada.idSuborden,
+      estado: 'PENDIENTE',
+      items: entregada.items,
+      motivo: 'Faltante',
+      motivoRechazo: null,
+      importe: '10.00',
+      notaCredito: null,
+      creadoEn: '2026-10-15T12:00:00Z',
+      resueltoEn: null,
+      recibidoEn: null,
+    },
+  ];
+  assert.match(p.html(), /Cliente venta ENTREGADA/);
+  assert.match(p.html(), /Aprobar y emitir nota de crédito/);
+  entregada.reclamos[0].estado = 'RECIBIDO';
+  assert.doesNotMatch(p.html(), /Cliente venta ENTREGADA/);
+  p.click('Historial');
+  assert.match(p.html(), /Cliente venta ENTREGADA/);
+  assert.match(p.html(), /Devolución recibida/);
+});
