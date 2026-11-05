@@ -39,6 +39,8 @@ export class Negocio {
 
   @Column({ name: 'pagina_web', type: 'varchar', length: 200, nullable: true })
   paginaWeb: string | null;
+  @Column({ name: 'dias_reclamo', default:7 })
+  diasReclamo: number;
   @OneToMany(() => Cliente, (cliente) => cliente.negocio)
   clientes: Cliente[];
 }
