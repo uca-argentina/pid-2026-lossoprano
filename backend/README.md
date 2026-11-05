@@ -4,6 +4,24 @@ Para recorrer controladores, DTO, servicios, entidades y reglas comerciales, con
 
 API de BulkMarket para autenticación JWT y administración del negocio asociado a cada cuenta.
 
+## Cuentas de prueba
+
+Con la API corriendo (`npm run start:dev`), en otra terminal desde `backend/`:
+
+```sh
+npm run seed:demo
+```
+
+Crea estas cuentas, todas con la contraseña **`Demo1234`**:
+
+| Email | Rol | Negocio |
+| --- | --- | --- |
+| `vendedor@bulkmarket.com` | Vendedor | Bodega Los Andes (3 productos, pedido mínimo $50.000) |
+| `vendedor2@bulkmarket.com` | Vendedor | Distribuidora Norte (2 productos, sin mínimo) |
+| `comprador@bulkmarket.com` | Comprador | Almacén La Esquina |
+
+Se puede correr más de una vez sin duplicar datos. Los pasos completos para levantar el proyecto están en el [README de la raíz](../README.md).
+
 ## Sorteos simulados
 
 Compradores y vendedores comparten un sorteo cada 14 días. Los períodos comienzan a las 00:00 de Argentina, anclados al lunes 5 de enero de 2026; no son quincenas calendario. La fecha de entrega de cada suborden determina el período. Cada centavo comprado o vendido suma el mismo peso, sin mínimo adicional. Un negocio que compra y vende acumula ambos importes. Solo participan los negocios registrados al realizar el sorteo; las operaciones históricas de negocios eliminados siguen financiando el fondo.
