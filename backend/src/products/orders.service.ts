@@ -19,6 +19,7 @@ import { Negocio } from '../business/business.entity';
 import { CarritoItem } from './cart-item.entity';
 import { Producto } from './products.entity';
 import { PrecioEscalonado, precioParaCantidad } from './price-tier.entity';
+import { CrearReclamoDto } from './dto/reclamo.dto';
 import {
   conEstadoPedido,
   EstadoSuborden,
@@ -255,6 +256,40 @@ export class PedidosService {
         suborden.entregadaEn = suborden.actualizadoEn;
       }
       return repo.save(suborden);
+    });
+  }
+
+  crearReclamo(idSuborden: number, idNegocio: number, dto: CrearReclamoDto) {
+    return this.db.transaction(async (manager) => {
+      const repo = manager.getRepository(Suborden);
+      const suborden = await repo.findOne({
+        where: { idSuborden },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!suborden || suborden.idNegocioComprador !== idNegocio) {
+        throw new NotFoundException('Pedido no encontrado.');
+      }
+      if (EstadoSuborden.ENTREGADA !== suborden.estado) {
+        throw new ConflictException('Solo se pueden reclamar órdenes entregadas.');
+      }
+      // 3. ¿Estás a tiempo?
+      const vendedor = await manager.getRepository(Negocio).findOne({
+        where: { idNegocio: suborden.idNegocioVendedor },
+      });
+      if (!vendedor) {
+        throw new ConflictException('El vendedor ya no existe.');
+      }
+      if (!suborden.entregadaEn) {
+        throw new ConflictException('No se conoce la fecha de entrega de este pedido.');
+      }
+      const unDia = 24 * 60 * 60 * 1000;
+      const limite = new Date(
+        suborden.entregadaEn.getTime() + vendedor.diasReclamo * unDia,
+      );
+      const hoy = await ahoraSorteos(manager);
+      if (hoy > limite) {
+        throw new ConflictException('Venció el plazo para reclamar este pedido.');
+      }
     });
   }
 }
