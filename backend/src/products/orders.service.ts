@@ -4,21 +4,25 @@
  * La clave de confirmación hace idempotente el reintento: la misma compra no descuenta
  * dos veces.
  * Rechazo/cancelación devuelve stock; la entrega fija la fecha que usa el sorteo,
- * coordinada con su reloj y bloqueo.
+ * coordinada con su reloj y bloqueo, y la fecha desde la que corre el plazo de reclamo.
+ * Los reclamos se inician sobre subórdenes entregadas y los resuelve el vendedor.
  */
 
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { Cliente } from '../users/user.entity';
 import { Negocio } from '../business/business.entity';
 import { CarritoItem } from './cart-item.entity';
 import { Producto } from './products.entity';
 import { PrecioEscalonado, precioParaCantidad } from './price-tier.entity';
+import { CrearReclamoDto } from './dto/reclamo.dto';
+import { EstadoReclamo, Reclamo } from './claim.entity';
 import {
   conEstadoPedido,
   EstadoSuborden,
@@ -34,6 +38,13 @@ import { ahoraSorteos } from '../sweepstakes/sweepstakes-clock';
 const centavos = (valor: string) => BigInt(valor.replace('.', ''));
 const importe = (valor: bigint) =>
   `${valor / 100n}.${(valor % 100n).toString().padStart(2, '0')}`;
+const UN_DIA = 24 * 60 * 60 * 1000;
+// Último momento en que se puede reclamar una entrega, según los días del vendedor.
+const limiteReclamo = (entregadaEn: Date, dias: number) =>
+  new Date(entregadaEn.getTime() + dias * UN_DIA);
+// Número visible de la nota de crédito simulada, derivado del número de reclamo.
+const numeroNotaCredito = (idReclamo: number) =>
+  `NC-0001-${String(idReclamo).padStart(8, '0')}`;
 
 @Injectable()
 export class PedidosService {
@@ -196,10 +207,44 @@ export class PedidosService {
   async listarCompras(idNegocio: number) {
     const pedidos = await this.db.getRepository(Pedido).find({
       where: { idNegocioComprador: idNegocio },
-      relations: { subordenes: true },
-      order: { idPedido: 'DESC', subordenes: { idSuborden: 'ASC' } },
+      relations: { subordenes: { reclamos: true } },
+      order: {
+        idPedido: 'DESC',
+        subordenes: { idSuborden: 'ASC', reclamos: { idReclamo: 'ASC' } },
+      },
     });
-    return pedidos.map(conEstadoPedido);
+    const subordenes = await this.conPlazoReclamo(pedidos.flatMap((p) => p.subordenes));
+    return pedidos.map((pedido) =>
+      conEstadoPedido({
+        ...pedido,
+        subordenes: subordenes.filter((s) => s.idPedido === pedido.idPedido),
+      }),
+    );
+  }
+
+  /**
+   * Agrega a cada suborden entregada la fecha límite para reclamar (según el plazo que
+   * configuró su vendedor) y si todavía se puede. La pantalla lo usa para mostrar el
+   * botón; crearReclamo lo vuelve a comprobar.
+   */
+  private async conPlazoReclamo(subordenes: Suborden[]) {
+    const ids = [...new Set(subordenes.map((s) => s.idNegocioVendedor))];
+    const vendedores = ids.length
+      ? await this.db.getRepository(Negocio).findBy({ idNegocio: In(ids) })
+      : [];
+    const hoy = await ahoraSorteos(this.db);
+    return subordenes.map((suborden) => {
+      const vendedor = vendedores.find((v) => v.idNegocio === suborden.idNegocioVendedor);
+      const limite =
+        suborden.estado === EstadoSuborden.ENTREGADA && suborden.entregadaEn && vendedor
+          ? limiteReclamo(suborden.entregadaEn, vendedor.diasReclamo)
+          : null;
+      return {
+        ...suborden,
+        limiteReclamo: limite,
+        puedeReclamar: limite !== null && hoy <= limite,
+      };
+    });
   }
 
   /**
@@ -207,9 +252,11 @@ export class PedidosService {
    * ventas con compras propias.
    */
   listarVentas(idNegocio: number) {
-    return this.db
-      .getRepository(Suborden)
-      .find({ where: { idNegocioVendedor: idNegocio }, order: { idSuborden: 'DESC' } });
+    return this.db.getRepository(Suborden).find({
+      where: { idNegocioVendedor: idNegocio },
+      relations: { reclamos: true },
+      order: { idSuborden: 'DESC', reclamos: { idReclamo: 'ASC' } },
+    });
   }
 
   /**
@@ -252,8 +299,171 @@ export class PedidosService {
         // Serializa entrega y cierre: una entrega confirmada nunca queda fuera de su período.
         await manager.query('SELECT pg_advisory_xact_lock($1)', [BLOQUEO_SORTEOS]);
         suborden.actualizadoEn = await ahoraSorteos(manager);
+        suborden.entregadaEn = suborden.actualizadoEn;
       }
       return repo.save(suborden);
     });
+  }
+
+  /**
+   * El comprador inicia un reclamo sobre una suborden entregada, dentro del plazo del
+   * vendedor, indicando productos, cantidades y motivo. Queda PENDIENTE.
+   */
+  crearReclamo(idSuborden: number, idNegocio: number, dto: CrearReclamoDto) {
+    return this.db.transaction(async (manager) => {
+      // 1. ¿Existe la compra y es de quien reclama?
+      const repo = manager.getRepository(Suborden);
+      const suborden = await repo.findOne({
+        where: { idSuborden },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!suborden || suborden.idNegocioComprador !== idNegocio) {
+        throw new NotFoundException('Pedido no encontrado.');
+      }
+      // 2. ¿Ya se entregó?
+      if (EstadoSuborden.ENTREGADA !== suborden.estado) {
+        throw new ConflictException('Solo se pueden reclamar órdenes entregadas.');
+      }
+      // 3. ¿Está dentro del plazo del vendedor?
+      const vendedor = await manager.getRepository(Negocio).findOne({
+        where: { idNegocio: suborden.idNegocioVendedor },
+      });
+      if (!vendedor) {
+        throw new ConflictException('El vendedor ya no existe.');
+      }
+      if (!suborden.entregadaEn) {
+        throw new ConflictException('No se conoce la fecha de entrega de este pedido.');
+      }
+      const unDia = 24 * 60 * 60 * 1000;
+      const limite = new Date(
+        suborden.entregadaEn.getTime() + vendedor.diasReclamo * unDia,
+      );
+      const hoy = await ahoraSorteos(manager);
+      if (hoy > limite) {
+        throw new ConflictException('Venció el plazo para reclamar este pedido.');
+      }
+
+      // 4. ¿Los productos son de esta compra y las cantidades no se pasan?
+      const reclamos = manager.getRepository(Reclamo);
+      const anteriores = await reclamos.findBy({ idSuborden });
+      const lineas: LineaPedido[] = [];
+      let total = 0n;
+      for (const pedido of dto.items) {
+        const comprado = suborden.items.find(
+          (item) => item.idProducto === pedido.idProducto,
+        );
+        if (!comprado) {
+          throw new BadRequestException('Uno de los productos no es de esta compra.');
+        }
+        // Unidades de este producto que ya se reclamaron. Los rechazados no cuentan.
+        const yaReclamadas = anteriores
+          .filter((reclamo) => reclamo.estado !== EstadoReclamo.RECHAZADO)
+          .flatMap((reclamo) => reclamo.items)
+          .filter((item) => item.idProducto === pedido.idProducto)
+          .reduce((suma, item) => suma + item.cantidad, 0);
+        const disponibles = comprado.cantidad - yaReclamadas;
+        if (pedido.cantidad > disponibles) {
+          throw new BadRequestException(
+            disponibles > 0
+              ? `Podés reclamar como máximo ${disponibles} unidad(es) de ${comprado.nombre}.`
+              : `Ya reclamaste todas las unidades de ${comprado.nombre}.`,
+          );
+        }
+        // La nota de crédito usa el precio que se pagó, no el precio actual.
+        const subtotal = centavos(comprado.precioUnitario) * BigInt(pedido.cantidad);
+        total += subtotal;
+        lineas.push({
+          idProducto: comprado.idProducto,
+          nombre: comprado.nombre,
+          cantidad: pedido.cantidad,
+          precioUnitario: comprado.precioUnitario,
+          subtotal: importe(subtotal),
+        });
+      }
+
+      // 5. Guardar el reclamo (arranca PENDIENTE).
+      return reclamos.save(
+        reclamos.create({
+          idSuborden,
+          idNegocioComprador: suborden.idNegocioComprador,
+          idNegocioVendedor: suborden.idNegocioVendedor,
+          items: lineas,
+          motivo: dto.motivo,
+          importe: importe(total),
+        }),
+      );
+    });
+  }
+
+  /** El vendedor aprueba el reclamo y se genera la nota de crédito simulada. */
+  aprobarReclamo(idReclamo: number, idNegocio: number) {
+    return this.db.transaction(async (manager) => {
+      const reclamo = await this.reclamoDelVendedor(manager, idReclamo, idNegocio);
+      if (reclamo.estado !== EstadoReclamo.PENDIENTE) {
+        throw new ConflictException('Este reclamo ya fue respondido.');
+      }
+      reclamo.estado = EstadoReclamo.APROBADO;
+      reclamo.notaCredito = numeroNotaCredito(reclamo.idReclamo);
+      reclamo.resueltoEn = await ahoraSorteos(manager);
+      return manager.getRepository(Reclamo).save(reclamo);
+    });
+  }
+
+  /**
+   * El vendedor rechaza el reclamo con un motivo obligatorio. La suborden sigue
+   * entregada y no cambian montos ni stock.
+   */
+  rechazarReclamo(idReclamo: number, idNegocio: number, motivo: string) {
+    return this.db.transaction(async (manager) => {
+      const reclamo = await this.reclamoDelVendedor(manager, idReclamo, idNegocio);
+      if (reclamo.estado !== EstadoReclamo.PENDIENTE) {
+        throw new ConflictException('Este reclamo ya fue respondido.');
+      }
+      reclamo.estado = EstadoReclamo.RECHAZADO;
+      reclamo.motivoRechazo = motivo;
+      reclamo.resueltoEn = await ahoraSorteos(manager);
+      return manager.getRepository(Reclamo).save(reclamo);
+    });
+  }
+
+  /**
+   * El vendedor confirma que recibió los productos devueltos de un reclamo aprobado:
+   * recién ahí vuelve el stock. Los productos eliminados del catálogo se ignoran.
+   */
+  confirmarRecepcionReclamo(idReclamo: number, idNegocio: number) {
+    return this.db.transaction(async (manager) => {
+      const reclamo = await this.reclamoDelVendedor(manager, idReclamo, idNegocio);
+      if (reclamo.estado !== EstadoReclamo.APROBADO) {
+        throw new ConflictException(
+          'Solo se puede confirmar la devolución de un reclamo aprobado.',
+        );
+      }
+      for (const item of [...reclamo.items].sort((a, b) => a.idProducto - b.idProducto)) {
+        // Movimiento de inventario: no cambia la versión del producto ni vacía carritos.
+        await manager.query(
+          'UPDATE producto SET stock = stock + $1 WHERE id_producto = $2',
+          [item.cantidad, item.idProducto],
+        );
+      }
+      reclamo.estado = EstadoReclamo.RECIBIDO;
+      reclamo.recibidoEn = await ahoraSorteos(manager);
+      return manager.getRepository(Reclamo).save(reclamo);
+    });
+  }
+
+  // Busca y bloquea un reclamo del vendedor. Si es de otro negocio, responde 404.
+  private async reclamoDelVendedor(
+    manager: EntityManager,
+    idReclamo: number,
+    idNegocio: number,
+  ) {
+    const reclamo = await manager.getRepository(Reclamo).findOne({
+      where: { idReclamo },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!reclamo || reclamo.idNegocioVendedor !== idNegocio) {
+      throw new NotFoundException('Reclamo no encontrado.');
+    }
+    return reclamo;
   }
 }

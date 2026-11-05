@@ -10,6 +10,7 @@ import { ProductosController } from './products.controller';
 import { Producto } from './products.entity';
 import { ProductosService } from './products.service';
 import { CarritoItem } from './cart-item.entity';
+import { Reclamo } from './claim.entity';
 import { CarritoService } from './cart.service';
 import { CarritoController } from './cart.controller';
 import { PrecioEscalonado } from './price-tier.entity';
@@ -28,6 +29,7 @@ import { ImagenesService } from './images.service';
       Categoria,
       Pedido,
       Suborden,
+      Reclamo,
     ]),
   ],
   controllers: [ProductosController, CarritoController, PedidosController],

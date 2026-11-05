@@ -1604,6 +1604,114 @@ select {
   color: #9b3823;
   background: #fff0ed;
 }
+/* Reclamos y devoluciones dentro de una suborden. */
+.reclamos {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e6dd;
+}
+.reclamo-inicio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.reclamos .secondary {
+  border: 1px solid #1b4e3b;
+  border-radius: 7px;
+  padding: 8px 14px;
+  background: #fff;
+  color: #1b4e3b;
+  font-weight: 700;
+}
+.reclamos .secondary:hover {
+  background: #eff5df;
+}
+.reclamo,
+.reclamo-formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: #fbfcf8;
+  border: 1px solid #e2e6dd;
+}
+.reclamo > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.reclamo p {
+  margin: 0;
+  font-size: 14px;
+}
+.reclamo-nota {
+  color: #3e6e28;
+  font-weight: 600;
+}
+.reclamo-rechazo {
+  color: #9b3823;
+  overflow-wrap: anywhere;
+}
+.reclamo-formulario ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reclamo-formulario li label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.reclamo-formulario li label > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.reclamo-formulario li input {
+  width: 84px;
+  flex: none;
+  border: 1px solid #ced7ce;
+  border-radius: 7px;
+  padding: 8px 10px;
+  text-align: right;
+}
+.reclamo-formulario .field {
+  margin: 0;
+}
+.estado-reclamo {
+  flex: none;
+  font: 500 11px 'DM Mono';
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 8px;
+  border-radius: 4px;
+  color: #7a5a12;
+  background: #fbf1d3;
+}
+.estado-reclamo.aprobado {
+  color: #27546b;
+  background: #e3f0f6;
+}
+.estado-reclamo.recibido {
+  color: #3e6e28;
+  background: #eff5df;
+}
+.estado-reclamo.rechazado {
+  color: #9b3823;
+  background: #fff0ed;
+}
 @media (max-width: 760px) {
   .pedidos {
     margin: 22px auto;

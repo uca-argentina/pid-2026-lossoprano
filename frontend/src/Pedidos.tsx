@@ -8,6 +8,7 @@
 
 import { ReactNode, useEffect, useState } from 'react';
 import { api, EstadoSuborden, Pedido, Suborden } from './api';
+import Reclamos from './Reclamos';
 import {
   ACCIONES_COMPRADOR,
   ACCIONES_VENDEDOR,
@@ -15,6 +16,7 @@ import {
   ESTADOS_PEDIDO,
   ESTADOS_SUBORDEN,
   formatCurrency,
+  reclamoAbierto,
   subordenFinalizada,
 } from './utils';
 
@@ -103,8 +105,12 @@ export default function Pedidos({
   const comprasVisibles = compras.filter((pedido) =>
     vista === 'historial' ? pedido.estado === 'COMPLETADA' : pedido.estado === 'EN_CURSO',
   );
+  // Una venta entregada con un reclamo abierto sigue en Pedidos recibidos hasta resolverlo.
+  const ventaActiva = (suborden: Suborden) =>
+    !subordenFinalizada(suborden.estado) ||
+    (suborden.reclamos ?? []).some(reclamoAbierto);
   const ventasVisibles = ventas.filter(
-    (suborden) => subordenFinalizada(suborden.estado) === (vista === 'historial'),
+    (suborden) => ventaActiva(suborden) === (vista === 'activos'),
   );
   const vistas: { id: Vista; etiqueta: string }[] = [
     { id: 'activos', etiqueta: esVenta ? 'Pedidos recibidos' : 'Seguimiento' },
@@ -118,8 +124,8 @@ export default function Pedidos({
         <h1>{esVenta ? 'Gestioná tus pedidos' : 'Seguí tus compras'}</h1>
         <p>
           {esVenta
-            ? 'Administrá los pedidos recibidos y consultá el historial de los entregados, rechazados o cancelados.'
-            : 'Consultá el seguimiento de tus compras y el historial de órdenes completadas.'}
+            ? 'Administrá los pedidos recibidos y sus reclamos, y consultá el historial de los entregados, rechazados o cancelados.'
+            : 'Consultá el seguimiento de tus compras y el historial de órdenes completadas. Desde una orden entregada podés iniciar un reclamo.'}
         </p>
       </section>
       <section className="pedidos">
@@ -173,8 +179,14 @@ export default function Pedidos({
                 suborden={suborden}
                 titulo={`Orden #${suborden.idSuborden} · ${suborden.nombreComprador}`}
                 detalle={`Pedido #${suborden.idPedido} del ${fecha(suborden.creadoEn)}`}
+                acciones={acciones(suborden, ACCIONES_VENDEDOR)}
               >
-                {acciones(suborden, ACCIONES_VENDEDOR)}
+                <Reclamos
+                  suborden={suborden}
+                  rol="vendedor"
+                  token={token}
+                  alActualizar={cargar}
+                />
               </TarjetaSuborden>
             ))
           ))}
@@ -210,8 +222,14 @@ export default function Pedidos({
                     suborden={suborden}
                     titulo={suborden.nombreVendedor}
                     detalle={`Orden #${suborden.idSuborden}`}
+                    acciones={acciones(suborden, ACCIONES_COMPRADOR)}
                   >
-                    {acciones(suborden, ACCIONES_COMPRADOR)}
+                    <Reclamos
+                      suborden={suborden}
+                      rol="comprador"
+                      token={token}
+                      alActualizar={cargar}
+                    />
                   </TarjetaSuborden>
                 ))}
               </article>
@@ -223,18 +241,20 @@ export default function Pedidos({
 }
 
 /**
- * Presenta datos históricos y recibe acciones como children; no calcula permisos ni
- * modifica pedidos.
+ * Presenta datos históricos. Recibe los botones de estado en acciones y los reclamos
+ * como children; no calcula permisos ni modifica pedidos.
  */
 function TarjetaSuborden({
   suborden,
   titulo,
   detalle,
+  acciones,
   children,
 }: {
   suborden: Suborden;
   titulo: string;
   detalle: string;
+  acciones?: ReactNode[];
   children?: ReactNode;
 }) {
   return (
@@ -269,7 +289,10 @@ function TarjetaSuborden({
       <small>
         Última actualización: {new Date(suborden.actualizadoEn).toLocaleString('es-AR')}
       </small>
-      {children && <div className="suborden-acciones">{children}</div>}
+      {acciones && acciones.length > 0 && (
+        <div className="suborden-acciones">{acciones}</div>
+      )}
+      {children}
     </article>
   );
 }

@@ -4,6 +4,24 @@ Para recorrer controladores, DTO, servicios, entidades y reglas comerciales, con
 
 API de BulkMarket para autenticación JWT y administración del negocio asociado a cada cuenta.
 
+## Cuentas de prueba
+
+Con la API corriendo (`npm run start:dev`), en otra terminal desde `backend/`:
+
+```sh
+npm run seed:demo
+```
+
+Crea estas cuentas, todas con la contraseña **`Demo1234`**:
+
+| Email | Rol | Negocio |
+| --- | --- | --- |
+| `vendedor@bulkmarket.com` | Vendedor | Bodega Los Andes (3 productos, pedido mínimo $50.000) |
+| `vendedor2@bulkmarket.com` | Vendedor | Distribuidora Norte (2 productos, sin mínimo) |
+| `comprador@bulkmarket.com` | Comprador | Almacén La Esquina |
+
+Se puede correr más de una vez sin duplicar datos. Los pasos completos para levantar el proyecto están en el [README de la raíz](../README.md).
+
 ## Sorteos simulados
 
 Compradores y vendedores comparten un sorteo cada 14 días. Los períodos comienzan a las 00:00 de Argentina, anclados al lunes 5 de enero de 2026; no son quincenas calendario. La fecha de entrega de cada suborden determina el período. Cada centavo comprado o vendido suma el mismo peso, sin mínimo adicional. Un negocio que compra y vende acumula ambos importes. Solo participan los negocios registrados al realizar el sorteo; las operaciones históricas de negocios eliminados siguen financiando el fondo.
@@ -46,6 +64,8 @@ Mínimos mayoristas: `montoMinimoOrden` se configura con `PATCH /negocios/mi-neg
 
 Categorías y precios escalonados: cada producto tiene `idCategoria` (una general o una propia del vendedor) y, opcionalmente, `preciosEscalonados: [{ cantidadMinima, precioUnitario }]`, enviados como JSON en el formulario multipart. `GET/POST /categorias` y `DELETE /categorias/:id` son solo para vendedores; no se puede borrar una categoría con productos (409). **Si la base ya tiene productos, correr `npm run migrar:categorias` antes de iniciar la API**, también en desarrollo.
 
+Reclamos: el comprador puede reclamar una suborden ENTREGADA dentro de los `diasReclamo` del vendedor (7 por defecto, se cambia con `PATCH /negocios/mi-negocio`, solo vendedores, entre 1 y 90). `GET /pedidos/compras` devuelve en cada suborden sus `reclamos`, `limiteReclamo` y `puedeReclamar`; `GET /pedidos/ventas` incluye los `reclamos`. Para producción aplicar `migrations/009-reclamos.sql`; en desarrollo, si la base ya tiene entregas, correr `npm run migrar:reclamos` antes de iniciar la API. Detalle de reglas en `CONTINUIDAD.md`.
+
 Pedidos: `POST /pedidos` confirma el carrito y genera una orden general con una suborden por vendedor. Recibe `items`, `total`, `claveConfirmacion` (UUID, permite reintentar sin duplicar) y `entregas: [{ idNegocio, direccionEntrega, condicionPago }]`, una por cada vendedor del carrito. Cada suborden valida su monto mínimo; si alguna falla no se confirma ninguna. `GET /pedidos/compras` lista las órdenes del negocio comprador y `GET /pedidos/ventas` las subórdenes recibidas por un vendedor. `PATCH /pedidos/subordenes/:id/estado` cambia el estado: el vendedor pasa de pendiente a confirmada o rechazada, y luego a preparada, enviada y entregada; el comprador puede cancelar una suborden pendiente o confirmada. Rechazar o cancelar devuelve el stock. Para producción aplicar `migrations/005-checkout.sql` y `migrations/006-subordenes.sql`; en desarrollo, si la base ya tiene pedidos, correr `npm run migrar:subordenes` antes de iniciar la API para conservarlos.
 
 La orden general devuelve `estado: EN_CURSO | COMPLETADA`, calculado a partir de todas sus subórdenes al confirmar, reintentar o listar compras. Solo se muestra completada cuando tiene al menos una suborden y todas están entregadas o cerradas (rechazadas o canceladas). El estado no se guarda por separado, por lo que no requiere migración y refleja los cambios de cada vendedor. El vendedor administra los pedidos recibidos y repone stock con `PATCH /productos/:id/stock`; el comprador consulta seguimiento e historial conservando los datos de la compra.
@@ -57,3 +77,7 @@ La orden general devuelve `estado: EN_CURSO | COMPLETADA`, calculado a partir de
 | GET | `/negocios/mi-negocio` | Lee el negocio autenticado. |
 | PATCH | `/negocios/mi-negocio` | Actualiza el negocio autenticado. |
 | DELETE | `/negocios/mi-negocio` | Elimina negocio y clientes asociados. |
+| POST | `/pedidos/subordenes/:id/reclamos` | El comprador reclama una suborden entregada: `{ items: [{ idProducto, cantidad }], motivo }`. |
+| PATCH | `/pedidos/reclamos/:id/aprobar` | El vendedor aprueba y se genera la nota de crédito simulada. |
+| PATCH | `/pedidos/reclamos/:id/rechazar` | El vendedor rechaza con `{ motivo }` obligatorio. |
+| PATCH | `/pedidos/reclamos/:id/recepcion` | El vendedor confirma la devolución de un reclamo aprobado; vuelve el stock. |

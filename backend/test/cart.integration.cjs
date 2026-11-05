@@ -20,6 +20,7 @@ const { Categoria } = require('../dist/categories/category.entity');
 const { PrecioEscalonado } = require('../dist/products/price-tier.entity');
 const { CategoriasService } = require('../dist/categories/categories.service');
 const { Pedido, Suborden } = require('../dist/products/order.entity');
+const { Reclamo } = require('../dist/products/claim.entity');
 const { PedidosService } = require('../dist/products/orders.service');
 const { randomUUID } = require('node:crypto');
 const { Sorteo } = require('../dist/sweepstakes/sweepstakes.entity');
@@ -42,6 +43,7 @@ test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', a
       PrecioEscalonado,
       Pedido,
       Suborden,
+      Reclamo,
       Sorteo,
       RelojSorteos,
     ],
@@ -62,10 +64,13 @@ test('persistencia y reglas del carrito en PostgreSQL, con tablas temporales', a
       'CREATE TEMP TABLE pedido (id_pedido serial PRIMARY KEY, id_cliente integer NOT NULL, id_negocio_comprador integer NOT NULL, clave_confirmacion uuid NOT NULL, total numeric(20,2) NOT NULL, creado_en timestamptz DEFAULT now(), UNIQUE(id_cliente, clave_confirmacion))',
     );
     await runner.query(
-      `CREATE TEMP TABLE suborden (id_suborden serial PRIMARY KEY, id_pedido integer NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE, id_negocio_vendedor integer NOT NULL, nombre_vendedor varchar(150) NOT NULL, id_negocio_comprador integer NOT NULL, nombre_comprador varchar(150) NOT NULL, direccion_entrega varchar(255) NOT NULL, condicion_pago varchar(20) NOT NULL, estado varchar(20) NOT NULL DEFAULT 'PENDIENTE', items jsonb NOT NULL, total numeric(20,2) NOT NULL, creado_en timestamptz DEFAULT now(), actualizado_en timestamptz DEFAULT now())`,
+      `CREATE TEMP TABLE suborden (id_suborden serial PRIMARY KEY, id_pedido integer NOT NULL REFERENCES pedido(id_pedido) ON DELETE CASCADE, id_negocio_vendedor integer NOT NULL, nombre_vendedor varchar(150) NOT NULL, id_negocio_comprador integer NOT NULL, nombre_comprador varchar(150) NOT NULL, direccion_entrega varchar(255) NOT NULL, condicion_pago varchar(20) NOT NULL, estado varchar(20) NOT NULL DEFAULT 'PENDIENTE', items jsonb NOT NULL, total numeric(20,2) NOT NULL, creado_en timestamptz DEFAULT now(), actualizado_en timestamptz DEFAULT now(), entregada_en timestamptz)`,
     );
     await runner.query(
-      'CREATE TEMP TABLE negocio (id_negocio serial PRIMARY KEY, razon_social varchar(150), nombre_comercial varchar(150), identificacion_fiscal varchar(50), telefono varchar(40), direccion varchar(255), monto_minimo_orden decimal(12,2) NOT NULL DEFAULT 0)',
+      `CREATE TEMP TABLE reclamo (id_reclamo serial PRIMARY KEY, id_suborden integer NOT NULL REFERENCES suborden(id_suborden) ON DELETE CASCADE, id_negocio_comprador integer NOT NULL, id_negocio_vendedor integer NOT NULL, estado varchar(20) NOT NULL DEFAULT 'PENDIENTE', items jsonb NOT NULL, motivo varchar(500) NOT NULL, motivo_rechazo varchar(500), importe numeric(20,2) NOT NULL, nota_credito varchar(30), creado_en timestamptz DEFAULT now(), resuelto_en timestamptz, recibido_en timestamptz)`,
+    );
+    await runner.query(
+      'CREATE TEMP TABLE negocio (id_negocio serial PRIMARY KEY, razon_social varchar(150), nombre_comercial varchar(150), identificacion_fiscal varchar(50), telefono varchar(40), direccion varchar(255), monto_minimo_orden decimal(12,2) NOT NULL DEFAULT 0, pagina_web varchar(200), dias_reclamo integer NOT NULL DEFAULT 7)',
     );
     await runner.query(
       'CREATE TEMP TABLE cliente (id_cliente serial PRIMARY KEY, id_negocio integer REFERENCES negocio(id_negocio) ON DELETE CASCADE, email varchar(180), password_hash varchar, rol varchar(20))',

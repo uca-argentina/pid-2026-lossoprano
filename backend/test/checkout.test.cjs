@@ -66,7 +66,10 @@ function escenario() {
           findBy: async ({ idProducto }) =>
             idProducto === 1 ? [{ cantidadMinima: 3, precioUnitario: '8.00' }] : [],
         },
-        Negocio: { findOne: async ({ where }) => negocios[where.idNegocio] },
+        Negocio: {
+          findOne: async ({ where }) => negocios[where.idNegocio],
+          findBy: async () => Object.values(negocios),
+        },
         Pedido: {
           find: async ({ where }) =>
             estado.pedidos

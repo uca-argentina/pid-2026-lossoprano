@@ -5,7 +5,14 @@
  * un botón no reemplaza la autorización del servidor.
  */
 
-import type { CondicionPago, EstadoPedido, EstadoSuborden } from './api';
+import type {
+  CondicionPago,
+  EstadoPedido,
+  EstadoReclamo,
+  EstadoSuborden,
+  Reclamo,
+  Suborden,
+} from './api';
 
 export const CONDICIONES_PAGO: Record<CondicionPago, string> = {
   CONTADO: 'Contado',
@@ -25,6 +32,32 @@ export const ESTADOS_SUBORDEN: Record<EstadoSuborden, string> = {
   RECHAZADA: 'Rechazada',
   CANCELADA: 'Cancelada',
 };
+export const ESTADOS_RECLAMO: Record<EstadoReclamo, string> = {
+  PENDIENTE: 'Reclamo pendiente',
+  APROBADO: 'Aprobado · esperando devolución',
+  RECIBIDO: 'Devolución recibida',
+  RECHAZADO: 'Reclamo rechazado',
+};
+// Un reclamo abierto todavía requiere una acción del vendedor.
+export const reclamoAbierto = (reclamo: Reclamo) =>
+  reclamo.estado === 'PENDIENTE' || reclamo.estado === 'APROBADO';
+
+/**
+ * Unidades que el comprador todavía puede reclamar por producto. Copia la regla del
+ * backend (los rechazados no consumen unidades) solo para limitar el formulario.
+ */
+export function cantidadesReclamables(suborden: Suborden) {
+  const disponibles = new Map(suborden.items.map((i) => [i.idProducto, i.cantidad]));
+  for (const reclamo of suborden.reclamos ?? []) {
+    if (reclamo.estado === 'RECHAZADO') continue;
+    for (const item of reclamo.items)
+      disponibles.set(
+        item.idProducto,
+        (disponibles.get(item.idProducto) ?? 0) - item.cantidad,
+      );
+  }
+  return disponibles;
+}
 export const subordenFinalizada = (estado: EstadoSuborden) =>
   estado === 'ENTREGADA' || estado === 'RECHAZADA' || estado === 'CANCELADA';
 type Accion = { estado: EstadoSuborden; etiqueta: string };

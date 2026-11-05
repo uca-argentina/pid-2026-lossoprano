@@ -17,6 +17,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Reclamo } from './claim.entity';
 
 export enum CondicionPago {
   CONTADO = 'CONTADO',
@@ -138,4 +139,8 @@ export class Suborden {
   creadoEn: Date;
   @UpdateDateColumn({ name: 'actualizado_en', type: 'timestamptz' })
   actualizadoEn: Date;
+  @Column({ name: 'entregada_en', type: 'timestamptz', nullable: true })
+  entregadaEn: Date | null;
+  @OneToMany(() => Reclamo, (reclamo) => reclamo.suborden)
+  reclamos: Reclamo[];
 }

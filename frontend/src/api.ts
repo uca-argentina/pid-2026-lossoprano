@@ -85,6 +85,25 @@ export type Suborden = {
   total: string;
   creadoEn: string;
   actualizadoEn: string;
+  entregadaEn?: string | null;
+  reclamos?: Reclamo[];
+  // Solo en compras: fecha límite según el plazo del vendedor y si todavía está vigente.
+  limiteReclamo?: string | null;
+  puedeReclamar?: boolean;
+};
+export type EstadoReclamo = 'PENDIENTE' | 'APROBADO' | 'RECIBIDO' | 'RECHAZADO';
+export type Reclamo = {
+  idReclamo: number;
+  idSuborden: number;
+  estado: EstadoReclamo;
+  items: LineaPedido[];
+  motivo: string;
+  motivoRechazo: string | null;
+  importe: string;
+  notaCredito: string | null;
+  creadoEn: string;
+  resueltoEn: string | null;
+  recibidoEn: string | null;
 };
 // Orden general de una compra, con una suborden por vendedor.
 export type Pedido = {
@@ -97,12 +116,14 @@ export type Pedido = {
 
 export type Negocio = {
   montoMinimoOrden?: string;
+  diasReclamo?: number | string;
   idNegocio: number;
   razonSocial: string;
   nombreComercial: string;
   identificacionFiscal: string;
   telefono: string;
   direccion: string;
+  paginaWeb?: string | null;
 };
 
 export type Sesion = {
@@ -257,6 +278,34 @@ export const api = {
     solicitud<Suborden>(
       `/pedidos/subordenes/${idSuborden}/estado`,
       { method: 'PATCH', body: JSON.stringify({ estado }) },
+      token,
+    ),
+  crearReclamo: (
+    idSuborden: number,
+    datos: { items: { idProducto: number; cantidad: number }[]; motivo: string },
+    token: string,
+  ) =>
+    solicitud<Reclamo>(
+      `/pedidos/subordenes/${idSuborden}/reclamos`,
+      { method: 'POST', body: JSON.stringify(datos) },
+      token,
+    ),
+  aprobarReclamo: (idReclamo: number, token: string) =>
+    solicitud<Reclamo>(
+      `/pedidos/reclamos/${idReclamo}/aprobar`,
+      { method: 'PATCH' },
+      token,
+    ),
+  rechazarReclamo: (idReclamo: number, motivo: string, token: string) =>
+    solicitud<Reclamo>(
+      `/pedidos/reclamos/${idReclamo}/rechazar`,
+      { method: 'PATCH', body: JSON.stringify({ motivo }) },
+      token,
+    ),
+  confirmarRecepcionReclamo: (idReclamo: number, token: string) =>
+    solicitud<Reclamo>(
+      `/pedidos/reclamos/${idReclamo}/recepcion`,
+      { method: 'PATCH' },
       token,
     ),
   obtenerCarrito: (token: string) => solicitud<Carrito>('/carrito', {}, token),

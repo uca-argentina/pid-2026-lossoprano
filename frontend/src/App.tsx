@@ -276,6 +276,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
           />
         </div>
       </div>
+
       <Campo
         etiqueta="Correo electrónico"
         tipo="email"
@@ -395,6 +396,7 @@ function Panel({
     return {
       ...datos,
       montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
+      diasReclamo: datos.diasReclamo ?? 7,
       identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
       telefono: soloDigitos(datos.telefono, 10),
     };
@@ -412,7 +414,8 @@ function Panel({
     setCargando(true);
     setError('');
     try {
-      const { montoMinimoOrden, ...datos } = negocio;
+      // Mínimo y plazo de reclamos son datos del vendedor: un comprador no los envía.
+      const { montoMinimoOrden, diasReclamo, ...datos } = negocio;
       const actualizado = await api.actualizarNegocio(
         esComprador ? datos : negocio,
         sesion.accessToken,
@@ -694,6 +697,15 @@ function Panel({
                       requerido
                     />
                   </div>
+                  <div className="full">
+                    <Campo
+                      etiqueta="Página web"
+                      valor={negocio.paginaWeb ?? ''}
+                      alCambiar={actualizar('paginaWeb')}
+                      maxLength={200}
+                      placeholder="www.ejemplo.com"
+                    />
+                  </div>
                 </div>
                 {!esComprador && (
                   <label className="field">
@@ -711,6 +723,26 @@ function Panel({
                     />
                     <small>
                       Importe mínimo del pedido en dinero. Usá 0 si no exigís un mínimo.
+                    </small>
+                  </label>
+                )}
+                {!esComprador && (
+                  <label className="field">
+                    <span>Plazo para reclamos (días)</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      step="1"
+                      required
+                      value={negocio.diasReclamo ?? 7}
+                      onChange={(evento) =>
+                        actualizar('diasReclamo')(evento.target.value)
+                      }
+                    />
+                    <small>
+                      Días desde la entrega en los que tus compradores pueden iniciar un
+                      reclamo.
                     </small>
                   </label>
                 )}

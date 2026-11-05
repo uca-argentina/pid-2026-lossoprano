@@ -18,7 +18,10 @@ export class RelojSorteos {
   desfaseMs: string;
 }
 
-export async function ahoraSorteos(manager: EntityManager): Promise<Date> {
+// Acepta un EntityManager o el DataSource: los dos tienen getRepository.
+export async function ahoraSorteos(
+  manager: Pick<EntityManager, 'getRepository'>,
+): Promise<Date> {
   if (!relojPruebaHabilitado()) return new Date();
   const reloj = await manager.getRepository(RelojSorteos).findOneBy({ id: 1 });
   return new Date(Date.now() + Number(reloj?.desfaseMs ?? '0'));
