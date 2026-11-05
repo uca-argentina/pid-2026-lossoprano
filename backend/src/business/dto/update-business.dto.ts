@@ -8,6 +8,7 @@
  */
 
 import {
+  IsInt,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -52,4 +53,11 @@ export class ActualizarNegocioDto {
   @IsString({ message: 'La página web tiene que ser texto.' })
   @MaxLength(200, { message: 'La página web puede tener hasta 200 caracteres.' })
   paginaWeb?: string;
+
+  @ValidateIf((_obj, value) => value !== undefined)
+  @Type(() => Number)
+  @IsInt({ message: 'El plazo para reclamos tiene que ser un número entero de días.' })
+  @Min(1, { message: 'El plazo para reclamos tiene que ser de al menos 1 día.' })
+  @Max(90, { message: 'El plazo para reclamos no puede superar los 90 días.' })
+  diasReclamo?: number;
 }

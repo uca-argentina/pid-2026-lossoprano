@@ -38,6 +38,11 @@ export class NegociosController {
         'Solo los vendedores pueden definir un monto mínimo de pedido.',
       );
     }
+    if (dto.diasReclamo !== undefined && request.user.rol !== 'VENDEDOR') {
+      throw new ForbiddenException(
+        'Solo los vendedores pueden definir el plazo para reclamos.',
+      );
+    }
     return this.negocios.actualizar(request.user.idNegocio, dto);
   }
   @Delete('mi-negocio')
