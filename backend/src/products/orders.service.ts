@@ -252,6 +252,7 @@ export class PedidosService {
         // Serializa entrega y cierre: una entrega confirmada nunca queda fuera de su período.
         await manager.query('SELECT pg_advisory_xact_lock($1)', [BLOQUEO_SORTEOS]);
         suborden.actualizadoEn = await ahoraSorteos(manager);
+        suborden.entregadaEn = suborden.actualizadoEn;
       }
       return repo.save(suborden);
     });
