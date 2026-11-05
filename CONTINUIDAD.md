@@ -1,6 +1,6 @@
 # BulkMarket — guía de continuidad
 
-Última revisión: 15 de octubre de 2026. Este documento describe el código actual y las decisiones tomadas; no sustituye su revisión antes de hacer cambios. Está pensado para otra persona o agente que continúe el proyecto.
+Última revisión: 5 de noviembre de 2026. Este documento describe el código actual y las decisiones tomadas; no sustituye su revisión antes de hacer cambios. Está pensado para otra persona o agente que continúe el proyecto.
 
 ## Propósito y alcance actual
 
@@ -19,6 +19,8 @@ Implementado:
 - Checkout dentro del carrito: por cada vendedor, dirección de entrega editable y condición de pago simulada (contado, transferencia o cuenta corriente). Al confirmar se genera una orden general (`pedido`) y una suborden independiente por vendedor, se descuenta stock y se vacía el carrito en una transacción.
 - Estados de suborden: pendiente, confirmada, preparada, enviada, entregada, rechazada y cancelada. Rechazar o cancelar devuelve el stock.
 - Mis Compras para toda cuenta, con Seguimiento e Historial de compras. Pedidos es independiente y solo para vendedores: Pedidos recibidos para ventas activas e Historial para entregadas, rechazadas o canceladas.
+- Reclamos sobre subórdenes entregadas: el comprador indica productos, cantidades y motivo dentro del plazo del vendedor (`diasReclamo`, 7 días por defecto, configurable en el perfil). El vendedor aprueba (nota de crédito simulada) o rechaza con motivo obligatorio; si aprobó, confirma la recepción de lo devuelto y recién ahí vuelve el stock.
+- Página web opcional en el perfil del negocio.
 
 No implementado: cobros reales, notificaciones, cancelación de la orden general completa en un solo paso, entregas parciales y reseñas.
 
@@ -37,6 +39,7 @@ No implementado: cobros reales, notificaciones, cancelación de la orden general
 - Los permisos sobre una suborden dependen del negocio, no del rol: actúa como vendedor el negocio que vende y como comprador el negocio que compró. Un tercero recibe 404.
 - Editar **cualquier campo** de un producto (incluidos sus precios escalonados) lo retira de todos los carritos que lo contienen. No actualizar silenciosamente el precio de un artículo ya agregado.
 - Categorías: las generales no las borra nadie; las de un vendedor solo las ve y usa ese vendedor. Los nombres se comparan sin mayúsculas, acentos ni espacios repetidos, y no se puede repetir el nombre de una general ni de una propia. El filtro de Explorar agrupa por nombre, así que «Vinos» de dos vendedores aparece como una sola opción. La FK producto → categoría es `NO ACTION`: la base también impide borrar una categoría con productos, además del chequeo del servicio, que devuelve 409 con un mensaje claro.
+- Reclamos: solo el comprador de la suborden puede iniciarlos y solo si está ENTREGADA. El plazo corre desde `entregadaEn` (se fija al marcarla entregada y no cambia después) más los `diasReclamo` del vendedor, medidos con el mismo reloj que los sorteos, así se puede probar adelantando el reloj de prueba. No se reclaman productos que no estén en la suborden ni más unidades que las compradas menos las ya reclamadas; los reclamos rechazados no consumen unidades. La nota de crédito usa el precio pagado guardado en la suborden, no el precio actual. Estados: PENDIENTE → APROBADO → RECIBIDO, o PENDIENTE → RECHAZADO. La suborden sigue ENTREGADA en todos los casos; rechazar no cambia montos ni stock. Una venta entregada con un reclamo pendiente o aprobado sigue apareciendo en Pedidos recibidos. Las reglas están en `crearReclamo`, `aprobarReclamo`, `rechazarReclamo` y `confirmarRecepcionReclamo` de `orders.service.ts`.
 - Precios escalonados: hasta 10 tramos por producto (`cantidadMinima`, `precioUnitario`). Cada tramo empieza por encima de la cantidad mínima de compra y su precio es menor que el precio base y que el tramo anterior. Se aplica el tramo más alto alcanzado; el subtotal y el monto mínimo del vendedor se calculan con ese precio.
 
 ## Organización y tecnologías
@@ -48,7 +51,7 @@ No hay un package.json de monorepo: instalar y ejecutar cada carpeta por separad
 | API | NestJS 11, TypeScript, TypeORM, PostgreSQL 16 |
 | Autenticación | JWT (8 horas) y bcrypt; `backend/src/auth/` |
 | Negocios | `backend/src/business/` |
-| Productos, precios escalonados, carritos y pedidos | `backend/src/products/` (`orders.service.ts`, `order.entity.ts`) |
+| Productos, precios escalonados, carritos, pedidos y reclamos | `backend/src/products/` (`orders.service.ts`, `order.entity.ts`, `claim.entity.ts`) |
 | Categorías | `backend/src/categories/` |
 | Web | React 19, TypeScript, Vite 6; CSS propio, no Tailwind |
 | Aplicación y perfil | `frontend/src/App.tsx` |
@@ -57,6 +60,7 @@ No hay un package.json de monorepo: instalar y ejecutar cada carpeta por separad
 | Estado del carrito | `frontend/src/useCarrito.ts` |
 | Panel y cantidades | `PanelCarrito.tsx`, `CantidadCarrito.tsx` |
 | Compras y ventas | `frontend/src/Pedidos.tsx` |
+| Reclamos (formulario y acciones) | `frontend/src/Reclamos.tsx` |
 | Tipos y acceso HTTP | `frontend/src/api.ts` |
 | Estilos responsive | `frontend/src/styles.css` |
 
@@ -130,6 +134,9 @@ En producción, `synchronize` está deshabilitado. Hay scripts SQL incrementales
 4. `004-categorias-precios-escalonados.sql`.
 5. `005-checkout.sql`.
 6. `006-subordenes.sql`.
+7. `007-sorteos.sql`.
+8. `008-sorteos-reloj.sql`.
+9. `009-reclamos.sql` (`npm run migrar:reclamos`): página web y plazo de reclamo del negocio, `entregada_en` de la suborden (las ya entregadas toman su última actualización) y la tabla `reclamo`. En desarrollo conviene correrla antes de levantar la API si la base ya tiene entregas, para que esas subórdenes tengan fecha de entrega y se puedan reclamar.
 
 La 006 crea `suborden`, convierte cada pedido anterior (de un solo vendedor) en una suborden confirmada y quita de `pedido` las columnas que pasaron a la suborden. En desarrollo conviene correr `npm run migrar:subordenes` desde `backend/` **antes** de levantar la API si la base ya tiene pedidos: sin ese paso `synchronize` igual arranca, pero borra esas columnas y los pedidos viejos quedan sin detalle. Se puede correr más de una vez.
 
