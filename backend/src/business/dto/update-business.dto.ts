@@ -16,6 +16,7 @@ import {
   Max,
   Min,
   ValidateIf,
+  MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -47,4 +48,8 @@ export class ActualizarNegocioDto {
   @IsString()
   @IsNotEmpty()
   direccion?: string;
+  @IsOptional()
+  @IsString({ message: 'La página web tiene que ser texto.' })
+  @MaxLength(200, { message: 'La página web puede tener hasta 200 caracteres.' })
+  paginaWeb?: string;
 }

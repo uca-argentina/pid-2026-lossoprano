@@ -276,6 +276,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
           />
         </div>
       </div>
+
       <Campo
         etiqueta="Correo electrónico"
         tipo="email"
@@ -692,6 +693,15 @@ function Panel({
                       valor={negocio.direccion}
                       alCambiar={actualizar('direccion')}
                       requerido
+                    />
+                  </div>
+                  <div className="full">
+                    <Campo
+                      etiqueta="Pagina web"
+                      valor={negocio.paginaWeb   ?? '' }
+                      alCambiar={actualizar('paginaWeb')}
+                      maxLength={200}
+                      placeholder="www.ejemplo.com"
                     />
                   </div>
                 </div>

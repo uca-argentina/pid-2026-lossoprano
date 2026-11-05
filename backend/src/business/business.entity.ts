@@ -37,6 +37,8 @@ export class Negocio {
   @Column({ name: 'direccion', length: 255 })
   direccion: string;
 
+  @Column({ name: 'pagina_web', type: 'varchar', length: 200, nullable: true })
+  paginaWeb: string | null;
   @OneToMany(() => Cliente, (cliente) => cliente.negocio)
   clientes: Cliente[];
 }

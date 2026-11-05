@@ -103,6 +103,7 @@ export type Negocio = {
   identificacionFiscal: string;
   telefono: string;
   direccion: string;
+  paginaWeb?: string | null;
 };
 
 export type Sesion = {
