@@ -8,11 +8,13 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Negocio } from '../business/business.entity';
 
+// Roles posibles. Se usa en @Roles(RolCliente.VENDEDOR) y viaja en el token (rol).
 export enum RolCliente {
   COMPRADOR = 'COMPRADOR',
   VENDEDOR = 'VENDEDOR',
 }
 
+// Tabla 'cliente' = el USUARIO que inicia sesión (email + contraseña). Pertenece a un negocio (idNegocio).
 @Entity('cliente')
 export class Cliente {
   @PrimaryGeneratedColumn({ name: 'id_cliente' })

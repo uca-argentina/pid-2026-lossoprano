@@ -14,6 +14,7 @@ import type {
   Suborden,
 } from './api';
 
+// Record<A, B> = objeto que para cada valor A tiene un texto B. Se usa para mostrar lindo: CONDICIONES_PAGO['CONTADO'] → 'Contado'.
 export const CONDICIONES_PAGO: Record<CondicionPago, string> = {
   CONTADO: 'Contado',
   TRANSFERENCIA: 'Transferencia',
@@ -23,6 +24,7 @@ export const ESTADOS_PEDIDO: Record<EstadoPedido, string> = {
   EN_CURSO: 'En curso',
   COMPLETADA: 'Completada',
 };
+// Texto para mostrar cada estado: ESTADOS_SUBORDEN[suborden.estado] → 'Entregada'.
 export const ESTADOS_SUBORDEN: Record<EstadoSuborden, string> = {
   PENDIENTE: 'Pendiente',
   CONFIRMADA: 'Confirmada',
@@ -39,6 +41,7 @@ export const ESTADOS_RECLAMO: Record<EstadoReclamo, string> = {
   RECHAZADO: 'Reclamo rechazado',
 };
 // Un reclamo abierto todavía requiere una acción del vendedor.
+// Devuelve true si el reclamo está PENDIENTE o APROBADO. Lo usa Pedidos.tsx con .some(reclamoAbierto).
 export const reclamoAbierto = (reclamo: Reclamo) =>
   reclamo.estado === 'PENDIENTE' || reclamo.estado === 'APROBADO';
 
@@ -46,6 +49,8 @@ export const reclamoAbierto = (reclamo: Reclamo) =>
  * Unidades que el comprador todavía puede reclamar por producto. Copia la regla del
  * backend (los rechazados no consumen unidades) solo para limitar el formulario.
  */
+// Cuántas unidades de cada producto se pueden reclamar todavía. La usa Reclamos.tsx.
+// Map = diccionario idProducto → cantidad.
 export function cantidadesReclamables(suborden: Suborden) {
   const disponibles = new Map(suborden.items.map((i) => [i.idProducto, i.cantidad]));
   for (const reclamo of suborden.reclamos ?? []) {
@@ -58,10 +63,13 @@ export function cantidadesReclamables(suborden: Suborden) {
   }
   return disponibles;
 }
+// Igual que en el back (order.entity.ts): true si ENTREGADA, RECHAZADA o CANCELADA.
 export const subordenFinalizada = (estado: EstadoSuborden) =>
   estado === 'ENTREGADA' || estado === 'RECHAZADA' || estado === 'CANCELADA';
 type Accion = { estado: EstadoSuborden; etiqueta: string };
 // Cambios de estado que ofrece la interfaz a cada parte; la API vuelve a validarlos.
+// BOTONES DEL VENDEDOR según el estado actual (los dibuja la función acciones() de Pedidos.tsx).
+// Tiene que coincidir con TRANSICIONES del back (order.entity.ts). Si agregás un estado nuevo, se agrega en los dos lados.
 export const ACCIONES_VENDEDOR: Partial<Record<EstadoSuborden, Accion[]>> = {
   PENDIENTE: [
     { estado: 'CONFIRMADA', etiqueta: 'Confirmar' },
@@ -71,6 +79,7 @@ export const ACCIONES_VENDEDOR: Partial<Record<EstadoSuborden, Accion[]>> = {
   PREPARADA: [{ estado: 'ENVIADA', etiqueta: 'Marcar enviada' }],
   ENVIADA: [{ estado: 'ENTREGADA', etiqueta: 'Marcar entregada' }],
 };
+// Botones del comprador: solo puede cancelar en PENDIENTE o CONFIRMADA.
 export const ACCIONES_COMPRADOR: Partial<Record<EstadoSuborden, Accion[]>> = {
   PENDIENTE: [{ estado: 'CANCELADA', etiqueta: 'Cancelar' }],
   CONFIRMADA: [{ estado: 'CANCELADA', etiqueta: 'Cancelar' }],
@@ -80,6 +89,7 @@ export const ACCIONES_COMPRADOR: Partial<Record<EstadoSuborden, Accion[]>> = {
  * Formatea importes para la interfaz. Actualmente usa USD/en-US; la pantalla Sorteos
  * utiliza su propio formato ARS. Es presentación, no cálculo contable.
  */
+// Muestra un importe como moneda. Acepta string (los decimal del back) o número.
 export function formatCurrency(amount: string | number): string {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(num)) return '$0.00';
@@ -98,6 +108,8 @@ type Tramo = { cantidadMinima: number; precioUnitario: string };
  * Selecciona el mayor umbral alcanzado, independientemente del orden del arreglo de
  * tramos.
  */
+// REGLA MAYORISTA en el front: precio unitario según la cantidad (el tramo más alto alcanzado).
+// reduce recorre los tramos y se queda con el mejor; arranca con el precio base.
 export function precioParaCantidad(
   precioBase: string,
   tramos: Tramo[] = [],

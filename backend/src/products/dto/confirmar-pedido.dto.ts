@@ -26,6 +26,7 @@ import { GuardarCarritoDto } from './guardar-carrito.dto';
 import { CondicionPago, EstadoSuborden } from '../order.entity';
 
 // Entrega y pago de la suborden de un vendedor.
+// Una entrega por vendedor: a qué negocio, dirección y forma de pago.
 export class EntregaSubordenDto {
   @IsInt()
   @Min(1)
@@ -35,10 +36,13 @@ export class EntregaSubordenDto {
   @IsNotEmpty()
   @MaxLength(255)
   direccionEntrega: string;
+  // @IsEnum: el valor tiene que ser uno del enum (CONTADO, TRANSFERENCIA, CUENTA_CORRIENTE).
   @IsEnum(CondicionPago)
   condicionPago: CondicionPago;
 }
 
+// Body de POST /api/pedidos (confirmar compra). extends = hereda los campos de GuardarCarritoDto (items) y agrega entregas, clave y total.
+// Lo manda api.confirmarPedido (api.ts) desde el carrito.
 export class ConfirmarPedidoDto extends GuardarCarritoDto {
   @ArrayMinSize(1)
   declare items: GuardarCarritoDto['items'];
@@ -55,6 +59,8 @@ export class ConfirmarPedidoDto extends GuardarCarritoDto {
   total: string;
 }
 
+// Body de PATCH /pedidos/subordenes/:id/estado → { estado: 'CONFIRMADA' }.
+// Lo manda api.cambiarEstadoSuborden (api.ts) y lo recibe orders.controller.cambiarEstado (@Body() dto) → dto.estado.
 export class CambiarEstadoDto {
   @IsEnum(EstadoSuborden)
   estado: EstadoSuborden;

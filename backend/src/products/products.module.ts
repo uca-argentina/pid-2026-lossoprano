@@ -4,6 +4,7 @@
  * responsabilidad de negocio.
  */
 
+// MÓDULO: junta las piezas de una parte del backend (entities, controllers, services).
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProductosController } from './products.controller';
@@ -20,8 +21,11 @@ import { PedidosController } from './orders.controller';
 import { PedidosService } from './orders.service';
 import { ImagenesService } from './images.service';
 
+// Si una entity, controller o service NO está acá, Nest no lo conoce.
 @Module({
   imports: [
+    // forFeature: lista de ENTITIES (tablas) que este módulo usa.
+    // Si creás una tabla nueva, la agregás acá (y su import arriba). Si no: no se crea la tabla y getRepository tira 'No metadata'.
     TypeOrmModule.forFeature([
       Producto,
       CarritoItem,
@@ -32,7 +36,9 @@ import { ImagenesService } from './images.service';
       Reclamo,
     ]),
   ],
+  // controllers: los que reciben las rutas HTTP. Un controller nuevo va acá o da 404.
   controllers: [ProductosController, CarritoController, PedidosController],
+  // providers: los services. Nest los crea y se los pasa a los controllers por el constructor.
   providers: [ProductosService, CarritoService, PedidosService, ImagenesService],
 })
 export class ProductosModule {}

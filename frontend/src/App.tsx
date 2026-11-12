@@ -7,9 +7,36 @@
  * identifica al comercio que compra o vende.
  */
 
+// ================= CÓMO LEER UN ARCHIVO DEL FRONT (React) =================
+// ORDEN DE UN COMPONENTE (siempre igual):
+//   1) imports: traen funciones/tipos/componentes de otros archivos.
+//   2) export default function Nombre({ props }) { ... }  ← el componente es una FUNCIÓN.
+//   3) adentro, arriba: const [dato, setDato] = useState(inicial)  ← datos que cambian.
+//   4) después: funciones (cargar, guardar, enviar...) que llaman al back con api.algo(...).
+//   5) al final: return ( ...JSX... )  ← lo que se VE en pantalla.
+// FLUJO TÍPICO: useEffect → api.algo(token) (api.ts) → back → respuesta → setDato(respuesta) → React redibuja.
+// CÓMO SE CONECTA CON OTROS ARCHIVOS:
+//   - PROPS: el padre escribe <Hijo token={token} alGuardar={fn} />  y el hijo las recibe en function Hijo({ token, alGuardar }).
+//   - api.algo(...) está en api.ts: arma la URL y hace el fetch al back.
+// SINTAXIS QUE VAS A VER:
+//   (x) => algo          función flecha (función sin nombre). () => fn(x) = 'ejecutá fn(x) cuando pase (click)'.
+//   await               espera la respuesta del back (solo dentro de una función async).
+//   a && <p/>           si a es verdadero, muestra <p/>; si no, nada.
+//   a ? b : c           ternario: si a → b, si no → c.
+//   x?.y                lee y solo si x existe (si x es null/undefined no explota).
+//   x ?? valor          si x es null/undefined usa valor.
+//   lista.map((e) => <li/>)   un elemento de pantalla por cada elemento de la lista.
+//   {variable}          dentro del JSX: muestra el valor de la variable o ejecuta código JS.
+//   `texto ${variable}` texto con una variable adentro.
+//   ...objeto           copia todas las propiedades de un objeto/lista.
+//   className="..."     es el class de HTML (estilos de CSS).
+//   onClick / onChange / onSubmit   eventos: qué función se ejecuta al tocar / escribir / enviar.
+// ==============================================================================
 import { FormEvent, useEffect, useState, useRef } from 'react';
+// Trae el objeto api (llamadas al back, archivo api.ts) y los tipos.
 import { api, Negocio, Rol, Sesion } from './api';
 import Comprador from './Comprador';
+// Cada import de un componente = otro archivo .tsx que se dibuja acá adentro como <NombreComponente ... />.
 import CrearProducto from './CrearProducto';
 import useCarrito from './useCarrito';
 import PanelCarrito from './PanelCarrito';
@@ -25,23 +52,31 @@ const negocioInicial = {
   telefono: '',
   direccion: '',
 };
+// Nombre con el que se guarda la sesión en localStorage (memoria del navegador que sobrevive a recargar la página).
 const claveSesion = 'bulkmarket-sesion';
 
 /**
  * Mantiene la sesión en memoria y localStorage. Sin sesión muestra autenticación; con
  * sesión monta el panel del negocio.
  */
+// COMPONENTE RAÍZ: lo primero que se dibuja (lo monta main.tsx).
+// Si hay sesión → muestra el Panel. Si no → Ingreso / Registro.
 function App() {
+  // sesion = { accessToken (EL TOKEN), cliente { idCliente, email, rol }, negocio { idNegocio, ... } }.
+  // Arranca leyendo localStorage: si ya te habías logueado, no te pide login de nuevo.
   const [sesion, setSesion] = useState<Sesion | null>(() => {
     const valor = localStorage.getItem(claveSesion);
     return valor ? JSON.parse(valor) : null;
   });
   const [vista, setVista] = useState<Vista>('ingreso');
 
+  // Se llama después del login/registro con lo que devolvió el back (POST /auth/iniciar-sesion).
+  // La guarda en localStorage (como texto con JSON.stringify) y en el estado → React muestra el Panel.
   const guardarSesion = (nuevaSesion: Sesion) => {
     localStorage.setItem(claveSesion, JSON.stringify(nuevaSesion));
     setSesion(nuevaSesion);
   };
+  // Borra la sesión → vuelve a la pantalla de login.
   const cerrarSesion = () => {
     localStorage.removeItem(claveSesion);
     setSesion(null);
@@ -49,6 +84,7 @@ function App() {
 
   if (sesion)
     return (
+      // Le pasa al Panel (más abajo en este archivo) la sesión y las funciones como PROPS.
       <Panel sesion={sesion} guardarSesion={guardarSesion} cerrarSesion={cerrarSesion} />
     );
 
@@ -80,6 +116,8 @@ function App() {
             Crear cuenta
           </button>
         </div>
+        {/* Ternario en JSX: muestra el formulario de Ingreso o el de Registro según la pestaña.
+           alIngresar={guardarSesion}: el componente Ingreso llama a esta función cuando el login sale bien. */}
         {vista === 'ingreso' ? (
           <Ingreso
             alIngresar={guardarSesion}
@@ -113,6 +151,7 @@ function Marca() {
  * Controla credenciales y estado de la solicitud. Al completar entrega la sesión a
  * App.
  */
+// FORMULARIO DE LOGIN. Recibe por props alIngresar (= guardarSesion de App) y alRegistrarse.
 function Ingreso({
   alIngresar,
   alRegistrarse,
@@ -130,6 +169,9 @@ function Ingreso({
     setError('');
     setCargando(true);
     try {
+      // 1) api.iniciarSesion (api.ts) → POST /api/auth/iniciar-sesion con { email, password } (los estados del form).
+      // 2) el back (auth.controller → auth.service) verifica y devuelve la Sesion con el token.
+      // 3) alIngresar(sesion) = guardarSesion de App → guarda y muestra el Panel.
       await alIngresar(await api.iniciarSesion({ email, password }));
     } catch (error) {
       setError(error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
@@ -320,6 +362,7 @@ type Seccion =
  * Coordina secciones y menú adaptable según el rol. Mantiene un solo hook de carrito
  * para compartir estado entre catálogo y panel lateral.
  */
+// PANEL LOGUEADO: barra de navegación + la pantalla elegida. Recibe la sesión por props desde App.
 function Panel({
   sesion,
   guardarSesion,
@@ -329,6 +372,7 @@ function Panel({
   guardarSesion: (sesion: Sesion) => void;
   cerrarSesion: () => void;
 }) {
+  // Hook propio (archivo useCarrito.ts): maneja el carrito. Parámetros sacados de la sesión: id del cliente, token y negocio.
   const estadoCarrito = useCarrito(
     sesion.cliente.idCliente,
     sesion.accessToken,
@@ -337,7 +381,9 @@ function Panel({
   const [carritoAbierto, setCarritoAbierto] = useState(false);
   const unidadesCarrito =
     estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
+  // rol viene del login (sesion.cliente.rol). Decide qué pestañas se ven.
   const esComprador = sesion.cliente.rol === 'COMPRADOR';
+  // seccion = qué pantalla se muestra ('productos', 'compras', 'pedidos', ...). Las pestañas de arriba la cambian con setSeccion.
   const [seccion, setSeccion] = useState<Seccion>(esComprador ? 'explorar' : 'perfil');
   const [menuAbierto, setMenuAbierto] = useState(false);
   const navegacionRef = useRef<HTMLDivElement>(null);
@@ -773,6 +819,7 @@ function Panel({
           </>
         </div>
       )}
+      {/* Pestaña 'Mis productos' (vendedor) → dibuja CrearProducto (archivo CrearProducto.tsx). */}
       {seccion === 'productos' && (
         <div key={`productos-${refreshKey}`}>
           <>
@@ -782,16 +829,19 @@ function Panel({
               <p>Creá y administrá los productos de tu negocio.</p>
             </section>
             {sesion.cliente.rol === 'VENDEDOR' && (
+              // token={sesion.accessToken}: así le llega el TOKEN a la pantalla. De ahí lo pasa a api.misProductos(token), etc.
               <CrearProducto token={sesion.accessToken} />
             )}
           </>
         </div>
       )}
+      {/* Pestaña 'Mis compras' → Pedidos.tsx con tipo="compras" (en Pedidos, esVenta = false). */}
       {seccion === 'compras' && (
         <div key={`compras-${refreshKey}`}>
           <Pedidos token={sesion.accessToken} tipo="compras" />
         </div>
       )}
+      {/* Pestaña 'Pedidos' (solo vendedor) → el MISMO componente Pedidos.tsx con tipo="ventas" (esVenta = true). */}
       {!esComprador && seccion === 'pedidos' && (
         <div key={`pedidos-${refreshKey}`}>
           <Pedidos token={sesion.accessToken} tipo="ventas" />

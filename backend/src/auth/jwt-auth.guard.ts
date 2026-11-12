@@ -8,4 +8,5 @@ import { Injectable } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
+// @UseGuards(JwtAuthGuard) en un controller = exige token válido. Usa JwtStrategy (jwt.strategy.ts). Sin token → 401.
 export class JwtAuthGuard extends AuthGuard('jwt') {}

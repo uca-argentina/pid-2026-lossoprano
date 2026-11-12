@@ -9,11 +9,13 @@ import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 import { Cliente } from '../users/user.entity';
 
 @Entity('negocio')
+// Tabla 'negocio' = el COMERCIO (vendedor o comprador). idNegocio es el que viaja en el token y se usa en casi todos los where.
 export class Negocio {
   @PrimaryGeneratedColumn({ name: 'id_negocio' })
   idNegocio: number;
 
   @Column({
+    // REGLA MAYORISTA: monto mínimo de compra a este vendedor (lo chequea orders.service.confirmar).
     name: 'monto_minimo_orden',
     type: 'decimal',
     precision: 12,
@@ -39,6 +41,7 @@ export class Negocio {
 
   @Column({ name: 'pagina_web', type: 'varchar', length: 200, nullable: true })
   paginaWeb: string | null;
+  // Días que tiene el comprador para reclamar después de la entrega (lo usa orders.service.crearReclamo).
   @Column({ name: 'dias_reclamo', default: 7 })
   diasReclamo: number;
   @OneToMany(() => Cliente, (cliente) => cliente.negocio)

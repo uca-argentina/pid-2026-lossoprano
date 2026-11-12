@@ -5,28 +5,64 @@
  * la recepción de la devolución. La API vuelve a validar plazo, cantidades y permisos.
  */
 
+// ================= CÓMO LEER UN ARCHIVO DEL FRONT (React) =================
+// ORDEN DE UN COMPONENTE (siempre igual):
+//   1) imports: traen funciones/tipos/componentes de otros archivos.
+//   2) export default function Nombre({ props }) { ... }  ← el componente es una FUNCIÓN.
+//   3) adentro, arriba: const [dato, setDato] = useState(inicial)  ← datos que cambian.
+//   4) después: funciones (cargar, guardar, enviar...) que llaman al back con api.algo(...).
+//   5) al final: return ( ...JSX... )  ← lo que se VE en pantalla.
+// FLUJO TÍPICO: useEffect → api.algo(token) (api.ts) → back → respuesta → setDato(respuesta) → React redibuja.
+// CÓMO SE CONECTA CON OTROS ARCHIVOS:
+//   - PROPS: el padre escribe <Hijo token={token} alGuardar={fn} />  y el hijo las recibe en function Hijo({ token, alGuardar }).
+//   - api.algo(...) está en api.ts: arma la URL y hace el fetch al back.
+// SINTAXIS QUE VAS A VER:
+//   (x) => algo          función flecha (función sin nombre). () => fn(x) = 'ejecutá fn(x) cuando pase (click)'.
+//   await               espera la respuesta del back (solo dentro de una función async).
+//   a && <p/>           si a es verdadero, muestra <p/>; si no, nada.
+//   a ? b : c           ternario: si a → b, si no → c.
+//   x?.y                lee y solo si x existe (si x es null/undefined no explota).
+//   x ?? valor          si x es null/undefined usa valor.
+//   lista.map((e) => <li/>)   un elemento de pantalla por cada elemento de la lista.
+//   {variable}          dentro del JSX: muestra el valor de la variable o ejecuta código JS.
+//   `texto ${variable}` texto con una variable adentro.
+//   ...objeto           copia todas las propiedades de un objeto/lista.
+//   className="..."     es el class de HTML (estilos de CSS).
+//   onClick / onChange / onSubmit   eventos: qué función se ejecuta al tocar / escribir / enviar.
+// ==============================================================================
 import { FormEvent, useState } from 'react';
 import { api, Reclamo, Suborden } from './api';
 import { cantidadesReclamables, ESTADOS_RECLAMO, formatCurrency } from './utils';
 
 const fechaHora = (valor: string) => new Date(valor).toLocaleString('es-AR');
 
+// Tipo de las PROPS que recibe el componente (lo que le pasa Pedidos.tsx).
 type Props = {
   suborden: Suborden;
   rol: 'comprador' | 'vendedor';
   token: string;
   // Se llama después de cada acción, haya salido bien o no, para releer los pedidos.
+  // Función async del padre (cargar de Pedidos.tsx) para recargar los pedidos.
   alActualizar: () => Promise<void>;
 };
 
+// COMPONENTE Reclamos: se dibuja dentro de cada tarjeta de suborden.
+// { suborden, rol, token, alActualizar } = saca cada prop por nombre (desestructuración).
+// DE DÓNDE VIENEN LAS PROPS (las pone Pedidos.tsx en <Reclamos ... />):
+//   suborden = el elemento del .map de subórdenes · rol = 'comprador' o 'vendedor' (texto fijo en Pedidos)
+//   token = el token que Pedidos recibió de App.tsx · alActualizar = la función cargar() de Pedidos.
 export default function Reclamos({ suborden, rol, token, alActualizar }: Props) {
+  // true = formulario de nuevo reclamo abierto.
   const [abierto, setAbierto] = useState(false);
+  // ?? [] = si la suborden no trae reclamos (undefined), usa lista vacía.
   const reclamos = suborden.reclamos ?? [];
   const disponibles = cantidadesReclamables(suborden);
   const quedanUnidades = [...disponibles.values()].some((cantidad) => cantidad > 0);
+  // Se puede iniciar reclamo si: es comprador Y está en plazo (puedeReclamar lo calcula el back) Y quedan unidades.
   const puedeIniciar =
     rol === 'comprador' && suborden.puedeReclamar === true && quedanUnidades;
 
+  // return null = no dibuja nada.
   if (!reclamos.length && rol === 'vendedor') return null;
 
   return (
@@ -34,6 +70,7 @@ export default function Reclamos({ suborden, rol, token, alActualizar }: Props) 
       className="reclamos"
       aria-label={`Reclamos de la orden #${suborden.idSuborden}`}
     >
+      {/* Una tarjeta por reclamo ya hecho. */}
       {reclamos.map((reclamo) => (
         <TarjetaReclamo
           key={reclamo.idReclamo}
@@ -43,6 +80,8 @@ export default function Reclamos({ suborden, rol, token, alActualizar }: Props) 
           alActualizar={alActualizar}
         />
       ))}
+      {/* CONDICIÓN DE VARIAS PARTES con &&: comprador Y suborden ENTREGADA Y tiene fecha límite Y el formulario no está abierto.
+         MOLDE para mostrar un botón solo en subórdenes entregadas. */}
       {rol === 'comprador' &&
         suborden.estado === 'ENTREGADA' &&
         suborden.limiteReclamo &&
@@ -55,6 +94,7 @@ export default function Reclamos({ suborden, rol, token, alActualizar }: Props) 
                   : 'Ya reclamaste todas las unidades de esta orden.'
                 : `El plazo para reclamar venció el ${fechaHora(suborden.limiteReclamo)}.`}
             </small>
+            {/* Botón 'Iniciar reclamo': onClick={() => setAbierto(true)} abre el formulario. */}
             {puedeIniciar && (
               <button
                 type="button"
@@ -66,7 +106,10 @@ export default function Reclamos({ suborden, rol, token, alActualizar }: Props) 
             )}
           </div>
         )}
+      {/* Si está abierto, muestra el formulario. alCerrar={() => setAbierto(false)} lo cierra. */}
       {abierto && (
+        // Le pasa props al formulario (función de abajo en este archivo): la suborden, las cantidades disponibles, el token,
+        // alCerrar (cierra) y alActualizar (recarga).
         <FormularioReclamo
           suborden={suborden}
           disponibles={disponibles}
@@ -79,6 +122,7 @@ export default function Reclamos({ suborden, rol, token, alActualizar }: Props) 
   );
 }
 
+// Componente del formulario (en el mismo archivo, sin export: solo se usa acá).
 function FormularioReclamo({
   suborden,
   disponibles,
@@ -93,35 +137,46 @@ function FormularioReclamo({
   alActualizar: () => Promise<void>;
 }) {
   const [cantidades, setCantidades] = useState<Record<number, string>>({});
+  // Texto del motivo (input controlado).
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
 
+  // Arma la lista { idProducto, cantidad } con lo que cargó el usuario (map) y saca los vacíos o 0 (filter).
   const items = Object.entries(cantidades)
     .map(([id, valor]) => ({ idProducto: Number(id), cantidad: Number(valor) }))
     .filter((item) => Number.isInteger(item.cantidad) && item.cantidad > 0);
+  // reduce: recorre la lista acumulando un total (arranca en 0, el último parámetro).
+  // Por cada item busca su precio (find) y suma precio × cantidad.
   const importe = items.reduce((total, item) => {
     const linea = suborden.items.find((i) => i.idProducto === item.idProducto);
     return total + Number(linea?.precioUnitario ?? 0) * item.cantidad;
   }, 0);
 
+  // Se ejecuta al enviar el formulario.
+  // LLAMADA AL BACK: api.crearReclamo (api.ts) → POST /pedidos/subordenes/:id/reclamos → orders.controller.crearReclamo → orders.service.crearReclamo.
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
+    // Validaciones del front antes de llamar al back.
     if (!items.length) return setError('Elegí al menos un producto y su cantidad.');
     if (!motivo.trim()) return setError('Indicá el motivo del reclamo.');
     setEnviando(true);
     setError('');
     try {
+      // POST /pedidos/subordenes/:id/reclamos. Argumentos en el MISMO ORDEN que en api.ts: (idSuborden, datos, token).
+      // motivo.trim() saca espacios.
       await api.crearReclamo(
         suborden.idSuborden,
         { items, motivo: motivo.trim() },
         token,
       );
+      // Si salió bien, cierra el formulario.
       alCerrar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo iniciar el reclamo.');
     } finally {
       setEnviando(false);
+      // En el finally: recarga los pedidos (salga bien o mal) para ver el reclamo nuevo.
       await alActualizar();
     }
   }
@@ -130,7 +185,9 @@ function FormularioReclamo({
     <form className="reclamo-formulario" onSubmit={enviar}>
       <b>Nuevo reclamo</b>
       <ul>
+        {/* Un input por producto comprado. map con { } y return (en vez de => ( ) porque antes hace un cálculo (const maximo). */}
         {suborden.items.map((item) => {
+          // Map.get(clave) → cantidad que queda por reclamar de ese producto (0 si no está).
           const maximo = disponibles.get(item.idProducto) ?? 0;
           return (
             <li key={item.idProducto}>
@@ -151,8 +208,10 @@ function FormularioReclamo({
                   inputMode="numeric"
                   placeholder="0"
                   disabled={maximo === 0}
+                  // cantidades es un objeto { idProducto: 'texto' }. [item.idProducto] lee la clave de ESTE producto.
                   value={cantidades[item.idProducto] ?? ''}
                   onChange={(e) =>
+                    // Actualiza solo la clave de este producto: copia todo (...actual) y pisa [item.idProducto] con lo escrito.
                     setCantidades((actual) => ({
                       ...actual,
                       [item.idProducto]: e.target.value,
@@ -172,6 +231,7 @@ function FormularioReclamo({
           rows={3}
           placeholder="Ej.: llegaron 3 cajas golpeadas"
           value={motivo}
+          // Input controlado: cada tecla guarda el texto en motivo.
           onChange={(e) => setMotivo(e.target.value)}
         />
       </label>
@@ -193,6 +253,8 @@ function FormularioReclamo({
   );
 }
 
+// TARJETA DE UN RECLAMO (componente de este mismo archivo). La dibuja Reclamos con reclamos.map.
+// Props: reclamo (elemento del map), rol, token y alActualizar (cargar de Pedidos).
 function TarjetaReclamo({
   reclamo,
   rol,
@@ -209,11 +271,15 @@ function TarjetaReclamo({
   const [error, setError] = useState('');
   const [enCurso, setEnCurso] = useState(false);
 
+  // Función genérica: recibe OTRA función (accion) que llama al back, la ejecuta con try/catch y después recarga.
+  // Así no repiten el try/catch en aprobar, rechazar y confirmar recepción.
   async function ejecutar(accion: () => Promise<unknown>, alTerminar?: () => void) {
     setEnCurso(true);
     setError('');
     try {
+      // Ejecuta la llamada que le pasaron (ej: () => api.aprobarReclamo(reclamo.idReclamo, token)).
       await accion();
+      // ?.() = la llama solo si la pasaron (es opcional).
       alTerminar?.();
       // Recibir la devolución repone stock: se avisa igual que al cancelar un pedido.
       window.dispatchEvent(new Event('stock-actualizado'));
@@ -270,6 +336,8 @@ function TarjetaReclamo({
           {error}
         </p>
       )}
+      {/* Botones del vendedor para un reclamo PENDIENTE.
+         Aprobar → api.aprobarReclamo(reclamo.idReclamo, token) → PATCH /pedidos/reclamos/:id/aprobar → orders.service.aprobarReclamo. */}
       {rol === 'vendedor' && reclamo.estado === 'PENDIENTE' && !rechazando && (
         <div className="suborden-acciones">
           <button
@@ -290,6 +358,7 @@ function TarjetaReclamo({
           </button>
         </div>
       )}
+      {/* Formulario de rechazo → api.rechazarReclamo(id, motivo, token) → PATCH /pedidos/reclamos/:id/rechazar con { motivo }. */}
       {rechazando && (
         <form
           className="reclamo-formulario"
@@ -331,6 +400,7 @@ function TarjetaReclamo({
           </div>
         </form>
       )}
+      {/* Reclamo aprobado → botón confirmar recepción → api.confirmarRecepcionReclamo → vuelve el stock. */}
       {rol === 'vendedor' && reclamo.estado === 'APROBADO' && (
         <div className="suborden-acciones">
           <button

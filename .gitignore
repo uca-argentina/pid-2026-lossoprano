@@ -5,8 +5,8 @@ node_modules/
 
 # Guía local del proyecto
 /project_guidelines.md
-/GUIA_DE_ESTUDIO.md
 
+/GUIA_GIT.md
 # Deployment credentials and database backups
 .vercel/
 .env*

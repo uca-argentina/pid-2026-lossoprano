@@ -15,12 +15,15 @@ import {
 import { Producto } from './products.entity';
 
 // Desde cantidadMinima unidades, el precio unitario pasa a ser precioUnitario.
+// Tabla de PRECIOS ESCALONADOS (regla mayorista): desde X unidades, el precio unitario baja.
+// Ej: base $100; desde 10 u → $90; desde 50 u → $80.
 @Entity('precio_escalonado')
 @Index(['idProducto', 'cantidadMinima'], { unique: true })
 export class PrecioEscalonado {
   @PrimaryGeneratedColumn({ name: 'id_precio_escalonado' })
   idPrecioEscalonado: number;
 
+  // Cada tramo pertenece a un producto (onDelete CASCADE: si borrás el producto, se borran sus tramos).
   @ManyToOne(() => Producto, (producto) => producto.preciosEscalonados, {
     onDelete: 'CASCADE',
   })
@@ -38,6 +41,8 @@ export class PrecioEscalonado {
 }
 
 // Devuelve el precio del tramo más alto alcanzado, o el precio base si no se alcanzó ninguno.
+// Calcula el precio unitario para una cantidad. La usa orders.service.confirmar.
+// Parámetros: precio base del producto, lista de tramos (de la base) y la cantidad del carrito.
 export function precioParaCantidad(
   precioBase: string,
   tramos: Pick<PrecioEscalonado, 'cantidadMinima' | 'precioUnitario'>[],
@@ -45,6 +50,7 @@ export function precioParaCantidad(
 ) {
   let precio = precioBase;
   let mayor = 0;
+  // Recorre los tramos y se queda con el de cantidadMinima más alta que la cantidad alcanza.
   for (const tramo of tramos ?? []) {
     if (tramo.cantidadMinima <= cantidad && tramo.cantidadMinima > mayor) {
       precio = tramo.precioUnitario;

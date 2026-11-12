@@ -19,6 +19,7 @@ import {
 } from 'typeorm';
 import type { LineaPedido, Suborden } from './order.entity';
 
+// Estados posibles de un reclamo.
 export enum EstadoReclamo {
   PENDIENTE = 'PENDIENTE',
   APROBADO = 'APROBADO',
@@ -26,19 +27,24 @@ export enum EstadoReclamo {
   RECHAZADO = 'RECHAZADO',
 }
 
+// Tabla 'reclamo'. Molde para cualquier TABLA NUEVA: @Entity + @PrimaryGeneratedColumn + @Column + @CreateDateColumn,
+// y después registrarla en forFeature de products.module.ts.
 @Entity('reclamo')
 @Index('reclamo_vendedor_idx', ['idNegocioVendedor'])
 @Index('reclamo_comprador_idx', ['idNegocioComprador'])
 export class Reclamo {
+  // Id automático: en el save no lo mandás, lo pone la base.
   @PrimaryGeneratedColumn({ name: 'id_reclamo' })
   idReclamo: number;
 
   // Se referencia por nombre para no importar order.entity (que importa este archivo).
+  // Relación: muchos reclamos → una suborden.
   @ManyToOne('Suborden', 'reclamos', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'id_suborden' })
   suborden: Suborden;
 
   @Index('reclamo_suborden_idx')
+  // El id de la suborden reclamada, como número. Con esto hacés where: { idSuborden }.
   @Column({ name: 'id_suborden' })
   idSuborden: number;
 
@@ -49,6 +55,7 @@ export class Reclamo {
   @Column({ name: 'id_negocio_vendedor' })
   idNegocioVendedor: number;
 
+  // Arranca PENDIENTE.
   @Column({ type: 'varchar', length: 20, default: EstadoReclamo.PENDIENTE })
   estado: EstadoReclamo;
 
@@ -56,10 +63,12 @@ export class Reclamo {
   @Column('jsonb')
   items: LineaPedido[];
 
+  // Texto obligatorio, máximo 500.
   @Column({ name: 'motivo', length: 500 })
   motivo: string;
 
   // Motivo obligatorio cuando el vendedor rechaza; el comprador lo ve en su historial.
+  // nullable: true → puede quedar vacío (null). Molde para una columna OPCIONAL.
   @Column({ name: 'motivo_rechazo', type: 'varchar', length: 500, nullable: true })
   motivoRechazo: string | null;
 

@@ -39,14 +39,17 @@ const TIPOS_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
 const TAMANIO_MAXIMO = 2 * 1024 * 1024;
 const CANTIDAD_MAXIMA_IMAGENES = 5;
 
+// Rutas /api/productos/... (catálogo). @UseGuards(JwtAuthGuard): todas piden token.
 @Controller('productos')
 @UseGuards(JwtAuthGuard)
 export class ProductosController {
+  // Nest le pasa los services: this.productos (lógica de productos) y this.almacenamiento (fotos).
   constructor(
     private readonly productos: ProductosService,
     private readonly almacenamiento: ImagenesService,
   ) {}
 
+  // POST /api/productos → crear producto (solo VENDEDOR). Recibe formulario con fotos (multipart).
   @Post()
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
@@ -67,6 +70,7 @@ export class ProductosController {
     if (rutas.length === 0) {
       throw new BadRequestException('Seleccioná entre una y cinco imágenes.');
     }
+    // → products.service.ts, crear(idNegocio, dto, rutasImagenes). idNegocio del TOKEN, dto del BODY (formulario), rutas = fotos ya guardadas.
     return this.productos.crear(request.user.idNegocio, dto, rutas);
   }
 
@@ -102,11 +106,14 @@ export class ProductosController {
     return rutas;
   }
 
+  // GET /api/productos?q=...&categoria=... → catálogo para el comprador.
+  // @Query() agarra lo que va después del ? en la URL.
   @Get()
   buscar(
     @Query() filtros: BuscarProductosDto,
     @Request() request: { user: { idNegocio: number } },
   ) {
+    // → products.service.ts, buscar(filtros, idNegocioActual). filtros = lo de ?q=... en la URL. Front: api.buscarProductos.
     return this.productos.buscar(filtros, request.user.idNegocio);
   }
 
@@ -118,6 +125,7 @@ export class ProductosController {
     return this.productos.validarCarrito(dto, request.user.idNegocio);
   }
 
+  // PATCH /api/productos/:id → editar producto (solo VENDEDOR).
   @Patch(':id')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
@@ -149,17 +157,24 @@ export class ProductosController {
     );
   }
 
+  // PATCH /api/productos/:id/stock → AGREGAR STOCK.
+  // MOLDE simple de ruta con :id + body: @Param + @Request + @Body → service(id, idNegocio, dto.campo).
   @Patch(':id/stock')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
   agregarStock(
+    // El :id de la URL, convertido a número.
     @Param('id', ParseIntPipe) id: number,
+    // Acá en vez de un type Solicitud escriben el tipo directo. Es lo mismo: request.user sale del token.
     @Request() request: { user: { idNegocio: number } },
+    // Body { cantidad } validado con AgregarStockDto (entero, mínimo 1).
     @Body() dto: AgregarStockDto,
   ) {
+    // Al service le pasa (id del producto, negocio del token, cantidad del body). Mismo orden que los parámetros del service.
     return this.productos.agregarStock(id, request.user.idNegocio, dto.cantidad);
   }
 
+  // DELETE /api/productos/:id → eliminar producto propio.
   @Delete(':id')
   @UseGuards(RolesGuard)
   @Roles(RolCliente.VENDEDOR)
@@ -167,14 +182,19 @@ export class ProductosController {
     @Param('id', ParseIntPipe) id: number,
     @Request() request: { user: { idNegocio: number } },
   ) {
+    // → products.service.ts, eliminar(idProducto, idNegocio). id de la URL, idNegocio del TOKEN. Front: api.eliminarProducto.
     return this.productos.eliminar(id, request.user.idNegocio);
   }
 
+  // GET /api/productos/mi-negocio → 'Mis productos' del vendedor logueado.
+  // MOLDE de GET sin parámetros: solo @Request para saber quién está logueado.
   @Get('mi-negocio')
   misProductos(@Request() request: { user: { idNegocio: number } }) {
+    // → products.service.ts, buscarDeNegocio(idNegocio). Front: api.misProductos (api.ts) desde el useEffect de CrearProducto.tsx.
     return this.productos.buscarDeNegocio(request.user.idNegocio);
   }
 
+  // GET /api/productos/categorias. No usa @Request porque es igual para todos.
   @Get('categorias')
   listarCategorias() {
     return this.productos.listarCategorias();
@@ -185,9 +205,12 @@ export class ProductosController {
     return this.productos.listarVendedores(request.user.idNegocio);
   }
 
+  // IMPORTANTE: :id atrapa CUALQUIER texto. Por eso las rutas fijas (mi-negocio, categorias...) van ARRIBA de esta.
+  // Si pusieras @Get('algo') abajo, Nest lo tomaría como :id = 'algo' → 400.
   @Get(':id')
   // Las rutas estáticas deben declararse antes de esta ruta.
   buscarUno(@Param('id', ParseIntPipe) id: number) {
+    // → products.service.ts, buscarUno(idProducto). Front: api.obtenerProducto.
     return this.productos.buscarUno(id);
   }
 }
