@@ -317,3 +317,7 @@ select{font:inherit}
   .stock-acciones{flex-direction:column-reverse;gap:16px}
   .producto-acciones{align-items:stretch;flex-direction:column}
 }
+.hola
+{
+  color:white
+}
