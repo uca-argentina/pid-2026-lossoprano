@@ -79,6 +79,14 @@ export const ACCIONES_VENDEDOR: Partial<Record<EstadoSuborden, Accion[]>> = {
   PREPARADA: [{ estado: 'ENVIADA', etiqueta: 'Marcar enviada' }],
   ENVIADA: [{ estado: 'ENTREGADA', etiqueta: 'Marcar entregada' }],
 };
+
+
+export const ACCIONES_VENTAURGENTE: Partial<Record<EstadoSuborden, Accion[]>> = {
+  
+  ACTIVADO: [{ estado: 'ACTIVADO', etiqueta: 'ACTIVADO' }],
+  DESACTIVADO: [{ estado: 'DESACTIVADO', etiqueta: 'DESACTIVADO' }],
+ 
+};
 // Botones del comprador: solo puede cancelar en PENDIENTE o CONFIRMADA.
 export const ACCIONES_COMPRADOR: Partial<Record<EstadoSuborden, Accion[]>> = {
   PENDIENTE: [{ estado: 'CANCELADA', etiqueta: 'Cancelar' }],

@@ -35,6 +35,10 @@ export class ActualizarNegocioDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
+  pedidoUrgente?: string;
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
   nombreComercial?: string;
   @IsOptional()
   @IsString()

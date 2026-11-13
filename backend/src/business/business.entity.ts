@@ -27,6 +27,9 @@ export class Negocio {
   @Column({ name: 'razon_social', length: 150 })
   razonSocial: string;
 
+  @Column({ name: 'pedido_urgente', length: 150 })
+  pedidoUrgente: string;
+
   @Column({ name: 'nombre_comercial', length: 150 })
   nombreComercial: string;
 

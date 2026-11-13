@@ -43,6 +43,7 @@ import PanelCarrito from './PanelCarrito';
 import Pedidos from './Pedidos';
 import Dashboard from './Dashboard';
 import Sorteos from './Sorteos';
+import CambiarPrecio from './CambiarPrecio';
 
 type Vista = 'ingreso' | 'registro';
 const negocioInicial = {
@@ -224,9 +225,11 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   const [negocio, setNegocio] = useState(negocioInicial);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [ventaUrgente, setVentaUrgente] =useState(false)
 
   const actualizarCampo = (campo: keyof typeof negocio) => (valor: string) =>
     setNegocio((actual) => ({ ...actual, [campo]: valor }));
+
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -442,6 +445,7 @@ function Panel({
     return {
       ...datos,
       montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
+      pedidosUrgentes: datos.pedidosUrgentes ?? 'desactivar',
       diasReclamo: datos.diasReclamo ?? 7,
       identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
       telefono: soloDigitos(datos.telefono, 10),
@@ -461,7 +465,7 @@ function Panel({
     setError('');
     try {
       // Mínimo y plazo de reclamos son datos del vendedor: un comprador no los envía.
-      const { montoMinimoOrden, diasReclamo, ...datos } = negocio;
+      const { montoMinimoOrden,pedidosUrgentes, diasReclamo, ...datos } = negocio;
       const actualizado = await api.actualizarNegocio(
         esComprador ? datos : negocio,
         sesion.accessToken,
@@ -772,6 +776,24 @@ function Panel({
                     </small>
                   </label>
                 )}
+                 {!esComprador && (
+                  <label className="field">
+                    <span>Pedidos Urgentes(escribir activar o desactivas)</span>
+                    <Campo
+                      etiqueta="Pedidos urgentes"
+                      valor={negocio.pedidosUrgentes ?? ''}
+                      alCambiar={actualizar('pedidosUrgentes')}
+                     
+                      maxLength={10}
+                      placeholder="activar"
+                    />
+                    
+                    <small>
+                      todo en minuscilas.
+                    </small>
+                  </label>
+                 
+                )}
                 {!esComprador && (
                   <label className="field">
                     <span>Plazo para reclamos (días)</span>
@@ -791,6 +813,7 @@ function Panel({
                       reclamo.
                     </small>
                   </label>
+                 
                 )}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}

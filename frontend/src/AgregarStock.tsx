@@ -35,6 +35,17 @@ import { FormEvent, useState } from 'react';
 import { api, Producto } from './api';
 // ModalProducto = la ventanita (modal) reutilizable con título y botón de cerrar.
 import ModalProducto from './ModalProducto';
+import {
+  ACCIONES_COMPRADOR,
+  ACCIONES_VENDEDOR,
+  ACCIONES_VENTAURGENTE,
+  CONDICIONES_PAGO,
+  ESTADOS_PEDIDO,
+  ESTADOS_SUBORDEN,
+  formatCurrency,
+  reclamoAbierto,
+  subordenFinalizada,
+} from './utils';
 
 // MODAL 'Agregar stock'. MOLDE para cualquier formulario en ventanita.
 // Recibe PROPS de CrearProducto.tsx: producto, token, alCerrar y alGuardar.
@@ -85,6 +96,8 @@ export default function AgregarStock({
       setOcupado(false);
     }
   }
+
+  
 
   return (
     // Usa el componente ModalProducto.tsx (la ventanita). titulo, ocupado y alCerrar son props.

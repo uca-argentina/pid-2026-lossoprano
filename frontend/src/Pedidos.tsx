@@ -41,6 +41,7 @@ import Reclamos from './Reclamos';
 import {
   ACCIONES_COMPRADOR,
   ACCIONES_VENDEDOR,
+  ACCIONES_VENTAURGENTE,
   CONDICIONES_PAGO,
   ESTADOS_PEDIDO,
   ESTADOS_SUBORDEN,
@@ -51,6 +52,9 @@ import {
 
 type Vista = 'activos' | 'historial';
 const fecha = (valor: string) => new Date(valor).toLocaleDateString('es-AR');
+
+
+import CambiarPrecio from './CambiarPrecio';
 
 // COMPONENTE Pedidos: una función que devuelve lo que se ve (JSX).
 // Lo usa App.tsx así: <Pedidos token={...} tipo="compras" /> o tipo="ventas".

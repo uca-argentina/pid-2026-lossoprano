@@ -123,6 +123,7 @@ export type Pedido = {
 
 export type Negocio = {
   montoMinimoOrden?: string;
+  pedidosUrgentes?:string;
   diasReclamo?: number | string;
   idNegocio: number;
   razonSocial: string;
