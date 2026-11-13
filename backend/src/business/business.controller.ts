@@ -43,6 +43,11 @@ export class NegociosController {
         'Solo los vendedores pueden definir el plazo para reclamos.',
       );
     }
+    if (dto.recargoUrgente !== undefined && request.user.rol !== 'VENDEDOR') {
+      throw new ForbiddenException(
+        'Solo los vendedores pueden definir el cargo fijo por pedido urgente.',
+      );
+    }
     return this.negocios.actualizar(request.user.idNegocio, dto);
   }
   @Delete('mi-negocio')

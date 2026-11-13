@@ -46,4 +46,7 @@ export class Negocio {
   diasReclamo: number;
   @OneToMany(() => Cliente, (cliente) => cliente.negocio)
   clientes: Cliente[];
+
+  @Column({name: 'recargo_pedido_urgente', default: 0})
+  recargoUrgente: number;
 }

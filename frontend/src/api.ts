@@ -96,6 +96,7 @@ export type Suborden = {
   // Solo en compras: fecha límite según el plazo del vendedor y si todavía está vigente.
   limiteReclamo?: string | null;
   puedeReclamar?: boolean;
+  urgente?: boolean | null;
 };
 export type EstadoReclamo = 'PENDIENTE' | 'APROBADO' | 'RECIBIDO' | 'RECHAZADO';
 export type Reclamo = {
@@ -123,6 +124,7 @@ export type Pedido = {
 
 export type Negocio = {
   montoMinimoOrden?: string;
+  recargoUrgente?: number | string;
   diasReclamo?: number | string;
   idNegocio: number;
   razonSocial: string;
@@ -196,6 +198,7 @@ export type VendedorCarrito = {
   montoMinimoOrden: string;
   faltanteMinimo: string;
   cumpleMinimos: boolean;
+  pedidosUrgentes: boolean;
 };
 // subtotal y cumpleMinimos resumen todo el carrito; cada vendedor tiene los suyos.
 export type Carrito = {

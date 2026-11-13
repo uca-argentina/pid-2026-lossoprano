@@ -443,6 +443,7 @@ function Panel({
       ...datos,
       montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
       diasReclamo: datos.diasReclamo ?? 7,
+      recargoUrgente: datos.recargoUrgente ?? 0,
       identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
       telefono: soloDigitos(datos.telefono, 10),
     };
@@ -461,7 +462,7 @@ function Panel({
     setError('');
     try {
       // Mínimo y plazo de reclamos son datos del vendedor: un comprador no los envía.
-      const { montoMinimoOrden, diasReclamo, ...datos } = negocio;
+      const { montoMinimoOrden, diasReclamo, recargoUrgente, ...datos } = negocio;
       const actualizado = await api.actualizarNegocio(
         esComprador ? datos : negocio,
         sesion.accessToken,
@@ -773,24 +774,40 @@ function Panel({
                   </label>
                 )}
                 {!esComprador && (
-                  <label className="field">
-                    <span>Plazo para reclamos (días)</span>
-                    <input
-                      type="number"
-                      min="1"
-                      max="90"
-                      step="1"
-                      required
-                      value={negocio.diasReclamo ?? 7}
-                      onChange={(evento) =>
-                        actualizar('diasReclamo')(evento.target.value)
-                      }
-                    />
-                    <small>
-                      Días desde la entrega en los que tus compradores pueden iniciar un
-                      reclamo.
-                    </small>
-                  </label>
+                  <>
+                    <label className="field">
+                      <span>Plazo para reclamos (días)</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        step="1"
+                        required
+                        value={negocio.diasReclamo ?? 7}
+                        onChange={(evento) =>
+                          actualizar('diasReclamo')(evento.target.value)
+                        }
+                      />
+                      <small>
+                        Días desde la entrega en los que tus compradores pueden iniciar un
+                        reclamo.
+                      </small>
+                    </label>
+                    <label className="field">
+                      <span>Recargo fijo por pedidos urgentes</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={negocio.recargoUrgente ?? 0}
+                        onChange={(evento) =>
+                          actualizar('recargoUrgente')(evento.target.value)
+                        }
+                      />
+                      <small>
+                        Monto fijo a cobrar por pedido urgrente. Si se define como 0, el negocio no aceptara pedidos urgentes. Por defecto es 0.
+                      </small>
+                    </label>
+                  </>
                 )}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}

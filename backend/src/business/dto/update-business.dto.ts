@@ -60,4 +60,9 @@ export class ActualizarNegocioDto {
   @Min(1, { message: 'El plazo para reclamos tiene que ser de al menos 1 día.' })
   @Max(90, { message: 'El plazo para reclamos no puede superar los 90 días.' })
   diasReclamo?: number;
+
+  @ValidateIf((_obj, value) => value !== undefined)
+  @Type(() => Number)
+  @Min(0, { message: 'El recargo por pedido urgente debe ser mayor o igual a 0.' })
+  recargoUrgente?: number;  
 }

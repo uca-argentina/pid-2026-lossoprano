@@ -274,6 +274,18 @@ export default function PanelCarrito({
                         ))}
                       </select>
                     </label>
+                    <button
+                      type="submit"
+                      form='checkout'
+                      className="danger"
+                      onClick={() => {
+                        /* setResumen(carrito);
+                        setCheckout(true); */
+                      }}
+                      disabled={(bloqueado && !vendedor.pedidosUrgentes) || true}
+                    >
+                      Compra Urgente
+                    </button>
                   </div>
                 )}
               </section>
