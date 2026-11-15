@@ -30,12 +30,14 @@ export default function EditarProducto({
   const [imagenes, setImagenes] = useState<File[]>([]);
   const [vistas, setVistas] = useState<string[]>([]);
 
+  // Crea vistas previas de las fotos nuevas y las libera al cambiarlas.
   useEffect(() => {
     const urls = imagenes.map((imagen) => URL.createObjectURL(imagen));
     setVistas(urls);
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [imagenes]);
 
+  // Valida los campos y las fotos nuevas, y guarda los cambios en la api.
   async function guardar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (ocupado) return;
@@ -75,6 +77,7 @@ export default function EditarProducto({
     }
   }
 
+  // Pide confirmación y borra el producto en la api.
   async function eliminar() {
     if (
       ocupado ||
@@ -104,11 +107,14 @@ export default function EditarProducto({
       ocupado={ocupado}
       alCerrar={alCerrar}
     >
+      {/* Aviso sobre los carritos */}
       <p className="muted">
         Al guardar cambios, este producto se quitará de los carritos de los compradores.
       </p>
+      {/* Formulario de edición con los valores actuales */}
       <form onSubmit={guardar}>
         <fieldset className="producto-campos" disabled={ocupado}>
+          {/* Nombre, descripción y categoría */}
           <label className="field">
             <span>Nombre</span>
             <input
@@ -128,6 +134,7 @@ export default function EditarProducto({
             />
           </label>
           <CampoCategoria estado={categorias} valorInicial={producto.idCategoria} />
+          {/* Precio base y stock */}
           <div className="form-grid">
             <label className="field">
               <span>Precio base por unidad</span>
@@ -154,6 +161,7 @@ export default function EditarProducto({
               />
             </label>
           </div>
+          {/* Cantidad mínima y precios por cantidad */}
           <label className="field">
             <span>Cantidad mínima de compra (opcional)</span>
             <input
@@ -171,6 +179,7 @@ export default function EditarProducto({
             </small>
           </label>
           <CampoPreciosEscalonados inicial={producto.preciosEscalonados} />
+          {/* Fotos: las nuevas si se eligieron, si no las actuales */}
           <div className="producto-imagenes">
             {(imagenes.length
               ? vistas
@@ -198,11 +207,13 @@ export default function EditarProducto({
           </button>
         </fieldset>
       </form>
+      {/* Error al guardar o eliminar */}
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
       )}
+      {/* Zona para eliminar el producto */}
       <section className="danger-zone">
         <div>
           <h2>Eliminar producto</h2>

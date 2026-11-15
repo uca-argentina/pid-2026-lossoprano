@@ -5,7 +5,7 @@
  * Si falla el guardado, restaura la cantidad que tenía el servidor.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { ItemCarrito } from './api';
 import { limitarCantidad } from './useCarrito';
 
@@ -20,6 +20,8 @@ export default function CantidadCarrito({
   const [guardando, setGuardando] = useState(false);
   const editando = useRef(false);
   const solicitudEnCurso = useRef(false);
+
+  // Si la cantidad cambia desde afuera y no se está escribiendo, muestra el valor nuevo.
   useEffect(() => {
     if (!editando.current) setTexto(String(item.cantidad));
   }, [item.cantidad]);
@@ -59,8 +61,21 @@ export default function CantidadCarrito({
     void confirmar(String(base + paso));
   }
 
+  // Enter confirma la cantidad; las flechas arriba/abajo suman o restan una unidad.
+  function manejarTecla(evento: KeyboardEvent<HTMLInputElement>) {
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      evento.currentTarget.blur();
+    }
+    if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
+      evento.preventDefault();
+      cambiar(evento.key === 'ArrowUp' ? 1 : -1);
+    }
+  }
+
   return (
     <div className="carrito-cantidad">
+      {/* Campo para escribir la cantidad; guarda al salir del campo */}
       <input
         type="number"
         aria-label={`Cantidad de ${item.nombre}`}
@@ -76,17 +91,9 @@ export default function CantidadCarrito({
         onBlur={() => {
           void confirmar();
         }}
-        onKeyDown={(evento) => {
-          if (evento.key === 'Enter') {
-            evento.preventDefault();
-            evento.currentTarget.blur();
-          }
-          if (evento.key === 'ArrowUp' || evento.key === 'ArrowDown') {
-            evento.preventDefault();
-            cambiar(evento.key === 'ArrowUp' ? 1 : -1);
-          }
-        }}
+        onKeyDown={manejarTecla}
       />
+      {/* Flechas para sumar o restar una unidad */}
       <div className="carrito-cantidad-flechas">
         <button
           type="button"

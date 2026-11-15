@@ -6,7 +6,7 @@
  * una operación en curso.
  */
 
-import { ReactNode, useLayoutEffect, useRef } from 'react';
+import { ReactNode, SyntheticEvent, useLayoutEffect, useRef } from 'react';
 
 export default function ModalProducto({
   titulo,
@@ -24,6 +24,8 @@ export default function ModalProducto({
   children: ReactNode;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+
+  // Abre el diálogo, bloquea el scroll de la página y lo restaura al cerrar.
   useLayoutEffect(() => {
     const elemento = dialogo.current!;
     const cuerpo = document.body;
@@ -72,26 +74,33 @@ export default function ModalProducto({
       window.scrollTo({ left: scrollX, top: scrollY, behavior: 'instant' });
     };
   }, []);
+
+  // Al apretar Escape cierra el modal, salvo que haya una operación en curso.
+  function cancelarConEscape(evento: SyntheticEvent<HTMLDialogElement>) {
+    evento.preventDefault();
+    if (!ocupado) alCerrar();
+  }
+
   return (
+    // Diálogo: se cierra con Escape o al hacer clic fuera del contenido
     <dialog
       ref={dialogo}
       className={`editar-producto-modal${compacto ? ' stock-modal' : ''}`}
       aria-labelledby={idTitulo}
-      onCancel={(evento) => {
-        evento.preventDefault();
-        if (!ocupado) alCerrar();
-      }}
+      onCancel={cancelarConEscape}
       onClick={(evento) => {
         if (evento.target === evento.currentTarget && !ocupado) alCerrar();
       }}
     >
       <div className="editar-producto-contenido">
+        {/* Título del modal y botón para cerrarlo */}
         <header>
           <h2 id={idTitulo}>{titulo}</h2>
           <button type="button" className="link" disabled={ocupado} onClick={alCerrar}>
             Cerrar ✕
           </button>
         </header>
+        {/* Contenido que manda cada pantalla */}
         {children}
       </div>
     </dialog>

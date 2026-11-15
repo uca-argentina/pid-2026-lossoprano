@@ -21,6 +21,7 @@ import {
 } from './utils';
 
 type Vista = 'activos' | 'historial';
+// Muestra una fecha en formato argentino (dd/mm/aaaa).
 const fecha = (valor: string) => new Date(valor).toLocaleDateString('es-AR');
 
 export default function Pedidos({
@@ -37,6 +38,25 @@ export default function Pedidos({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [enCurso, setEnCurso] = useState<number | null>(null);
+  // Compras de la pestaña elegida: en curso o completadas.
+  const comprasVisibles = compras.filter((pedido) =>
+    vista === 'historial' ? pedido.estado === 'COMPLETADA' : pedido.estado === 'EN_CURSO',
+  );
+  // Ventas de la pestaña elegida: activas o finalizadas.
+  const ventasVisibles = ventas.filter(
+    (suborden) => ventaActiva(suborden) === (vista === 'activos'),
+  );
+  // Pestañas que se muestran arriba de la lista.
+  const vistas: { id: Vista; etiqueta: string }[] = [
+    { id: 'activos', etiqueta: esVenta ? 'Pedidos recibidos' : 'Seguimiento' },
+    { id: 'historial', etiqueta: 'Historial' },
+  ];
+
+  // Carga los pedidos al entrar y cuando cambia el token o el tipo.
+  useEffect(() => {
+    void cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, tipo]);
 
   /**
    * Consulta solamente compras o ventas según tipo. Centraliza la recarga inicial y la
@@ -52,11 +72,6 @@ export default function Pedidos({
       setCargando(false);
     }
   }
-
-  useEffect(() => {
-    void cargar();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, tipo]);
 
   /**
    * Solicita la transición elegida y vuelve a consultar incluso si falla, porque la otra
@@ -85,8 +100,16 @@ export default function Pedidos({
     }
   }
 
-  const acciones = (suborden: Suborden, disponibles: typeof ACCIONES_VENDEDOR) =>
-    disponibles[suborden.estado]?.map((accion) => (
+  // Limpia el error y vuelve a pedir los pedidos al tocar "Actualizar pedidos".
+  function actualizarPedidos() {
+    setError('');
+    setCargando(true);
+    void cargar();
+  }
+
+  // Arma los botones de cambio de estado que corresponden a la suborden.
+  function acciones(suborden: Suborden, disponibles: typeof ACCIONES_VENDEDOR) {
+    return disponibles[suborden.estado]?.map((accion) => (
       <button
         key={accion.estado}
         type="button"
@@ -101,24 +124,19 @@ export default function Pedidos({
         {accion.etiqueta}
       </button>
     ));
+  }
 
-  const comprasVisibles = compras.filter((pedido) =>
-    vista === 'historial' ? pedido.estado === 'COMPLETADA' : pedido.estado === 'EN_CURSO',
-  );
   // Una venta entregada con un reclamo abierto sigue en Pedidos recibidos hasta resolverlo.
-  const ventaActiva = (suborden: Suborden) =>
-    !subordenFinalizada(suborden.estado) ||
-    (suborden.reclamos ?? []).some(reclamoAbierto);
-  const ventasVisibles = ventas.filter(
-    (suborden) => ventaActiva(suborden) === (vista === 'activos'),
-  );
-  const vistas: { id: Vista; etiqueta: string }[] = [
-    { id: 'activos', etiqueta: esVenta ? 'Pedidos recibidos' : 'Seguimiento' },
-    { id: 'historial', etiqueta: 'Historial' },
-  ];
+  function ventaActiva(suborden: Suborden) {
+    return (
+      !subordenFinalizada(suborden.estado) ||
+      (suborden.reclamos ?? []).some(reclamoAbierto)
+    );
+  }
 
   return (
     <>
+      {/* Encabezado: cambia según sea compras o ventas */}
       <section className="welcome">
         <span className="eyebrow">{esVenta ? 'PEDIDOS' : 'MIS COMPRAS'}</span>
         <h1>{esVenta ? 'Gestioná tus pedidos' : 'Seguí tus compras'}</h1>
@@ -129,6 +147,7 @@ export default function Pedidos({
         </p>
       </section>
       <section className="pedidos">
+        {/* Pestañas: en curso / historial */}
         <div
           className="pedidos-tabs"
           role="group"
@@ -146,24 +165,23 @@ export default function Pedidos({
             </button>
           ))}
         </div>
+        {/* Botón para volver a cargar los pedidos */}
         <button
           type="button"
           className="link pedidos-actualizar"
           disabled={cargando || enCurso !== null}
-          onClick={() => {
-            setError('');
-            setCargando(true);
-            void cargar();
-          }}
+          onClick={() => actualizarPedidos()}
         >
           Actualizar pedidos
         </button>
+        {/* Avisos de error y de carga */}
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         {cargando && <p className="muted">Cargando pedidos…</p>}
+        {/* Vendedor: una tarjeta por cada pedido recibido */}
         {!cargando &&
           esVenta &&
           (ventasVisibles.length === 0 ? (
@@ -190,6 +208,7 @@ export default function Pedidos({
               </TarjetaSuborden>
             ))
           ))}
+        {/* Comprador: cada pedido con sus subórdenes por vendedor */}
         {!cargando &&
           !esVenta &&
           (comprasVisibles.length === 0 ? (
@@ -259,6 +278,7 @@ function TarjetaSuborden({
 }) {
   return (
     <article className="suborden">
+      {/* Título, detalle y estado */}
       <header>
         <div>
           <b>{titulo}</b>
@@ -268,6 +288,7 @@ function TarjetaSuborden({
           {ESTADOS_SUBORDEN[suborden.estado]}
         </span>
       </header>
+      {/* Productos de la suborden con su subtotal */}
       <ul className="suborden-items">
         {suborden.items.map((item) => (
           <li key={item.idProducto}>
@@ -278,6 +299,7 @@ function TarjetaSuborden({
           </li>
         ))}
       </ul>
+      {/* Total, entrega, pago y última actualización */}
       <div className="suborden-total">
         <span>Total</span>
         <b>{formatCurrency(suborden.total)}</b>
@@ -289,6 +311,7 @@ function TarjetaSuborden({
       <small>
         Última actualización: {new Date(suborden.actualizadoEn).toLocaleString('es-AR')}
       </small>
+      {/* Botones de estado y reclamos */}
       {acciones && acciones.length > 0 && (
         <div className="suborden-acciones">{acciones}</div>
       )}

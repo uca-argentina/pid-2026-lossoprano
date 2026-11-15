@@ -5,7 +5,7 @@
  * validar los valores antes de guardar.
  */
 
-import { FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { api, Producto } from './api';
 import CampoCategoria, { EstadoCategorias } from './CampoCategoria';
 import CampoPreciosEscalonados from './CampoPreciosEscalonados';
@@ -27,12 +27,20 @@ export default function NuevoProducto({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
 
+  // Crea vistas previas de las fotos elegidas y las libera al cambiarlas.
   useEffect(() => {
     const urls = imagenes.map((imagen) => URL.createObjectURL(imagen));
     setVistas(urls);
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [imagenes]);
 
+  // Guarda las fotos elegidas y borra el error anterior.
+  function elegirImagenes(evento: ChangeEvent<HTMLInputElement>) {
+    setImagenes(Array.from(evento.target.files ?? []));
+    setError('');
+  }
+
+  // Valida los campos y las fotos, y crea el producto en la api.
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (guardando) return;
@@ -79,8 +87,10 @@ export default function NuevoProducto({
       ocupado={guardando}
       alCerrar={alCerrar}
     >
+      {/* Formulario de alta */}
       <form onSubmit={enviar}>
         <fieldset className="producto-campos" disabled={guardando}>
+          {/* Nombre, descripción y categoría */}
           <label className="field">
             <span>Nombre</span>
             <input name="nombre" maxLength={150} required />
@@ -90,6 +100,7 @@ export default function NuevoProducto({
             <textarea name="descripcion" rows={4} required />
           </label>
           <CampoCategoria estado={categorias} />
+          {/* Precio base y stock */}
           <div className="form-grid">
             <label className="field">
               <span>Precio base por unidad</span>
@@ -114,6 +125,7 @@ export default function NuevoProducto({
               />
             </label>
           </div>
+          {/* Cantidad mínima y precios por cantidad */}
           <label className="field">
             <span>Cantidad mínima de compra (opcional)</span>
             <input
@@ -127,6 +139,7 @@ export default function NuevoProducto({
             <small>Dejá el campo vacío para permitir compras desde una unidad.</small>
           </label>
           <CampoPreciosEscalonados />
+          {/* Selector de fotos y sus vistas previas */}
           <label className="field">
             <span>Imágenes</span>
             <input
@@ -135,10 +148,7 @@ export default function NuevoProducto({
               accept="image/jpeg,image/png,image/webp"
               multiple
               required
-              onChange={(evento) => {
-                setImagenes(Array.from(evento.target.files ?? []));
-                setError('');
-              }}
+              onChange={elegirImagenes}
             />
             <small>Hasta 5 imágenes JPG, PNG o WebP de 2 MB cada una.</small>
           </label>
@@ -155,6 +165,7 @@ export default function NuevoProducto({
             {guardando ? 'Guardando…' : 'Crear producto'}
           </button>
         </fieldset>
+        {/* Error al crear */}
         {error && (
           <p className="error" role="alert">
             {error}

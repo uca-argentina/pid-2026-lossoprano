@@ -10,10 +10,12 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, ParticipacionSorteo, ResumenSorteos } from './api';
 
+// Muestra un monto en pesos argentinos.
 const moneda = (valor: string) =>
   new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(
     Number(valor),
   );
+// Muestra una fecha larga ("3 de marzo de 2026") con la hora de Argentina.
 const fecha = (valor: string) =>
   new Date(valor).toLocaleDateString('es-AR', {
     day: 'numeric',
@@ -26,6 +28,7 @@ const fecha = (valor: string) =>
 const fechaLocal = (valor: string) =>
   new Date(new Date(valor).getTime() - 3 * 3600000).toISOString().slice(0, 19);
 
+// Probabilidad en porcentaje; si es muy chica muestra "<0,000001%".
 export const probabilidad = (propia: ParticipacionSorteo) =>
   propia.peso !== '0' && propia.probabilidad < 0.000001
     ? '<0,000001%'
@@ -44,7 +47,15 @@ export default function Sorteos({ token }: { token: string }) {
   // evita dos envíos incluso antes de que React llegue a deshabilitar el botón.
   const solicitudReloj = useRef(0);
   const cambioEnCurso = useRef(false);
+  // Período actual, reglas y porcentajes de comisión y aporte al premio.
+  const actual = resumen?.actual;
+  const reglas = resumen?.reglas;
+  const comision = reglas ? reglas.comisionBps / 100 : 0;
+  const aporte = reglas
+    ? (comision * reglas.premioNumerador) / reglas.premioDenominador
+    : 0;
 
+  // Trae los sorteos (cerrando los vencidos); se repite al tocar "Actualizar sorteos".
   useEffect(() => {
     let activo = true;
     setCargando(true);
@@ -119,25 +130,21 @@ export default function Sorteos({ token }: { token: string }) {
     }
   }
 
-  const actual = resumen?.actual;
-  const reglas = resumen?.reglas;
-  const comision = reglas ? reglas.comisionBps / 100 : 0;
-  const aporte = reglas
-    ? (comision * reglas.premioNumerador) / reglas.premioDenominador
-    : 0;
-
   return (
     <>
+      {/* Encabezado de la pantalla */}
       <section className="welcome">
         <span className="eyebrow">SORTEOS · DEMO</span>
         <h1>Cada negocio suma chances</h1>
         <p>Comprá, vendé y participá de un premio compartido cada 14 días.</p>
       </section>
       <section className="sorteos" aria-label="Sorteos" aria-busy={cargando}>
+        {/* Aviso de que los premios son simulados */}
         <div className="sorteos-aviso">
           <strong>Premios simulados</strong>
           <span>Esta demo no cobra comisiones ni entrega dinero real.</span>
         </div>
+        {/* Aclaración y botón para volver a cargar */}
         <div className="sorteos-encabezado">
           <p className="muted">
             Compradores y vendedores participan juntos. Solo cuentan pedidos entregados.
@@ -151,6 +158,7 @@ export default function Sorteos({ token }: { token: string }) {
             Actualizar sorteos
           </button>
         </div>
+        {/* Avisos de carga y de error */}
         {cargando && (
           <p role="status" className="muted">
             Cargando sorteos…
@@ -161,8 +169,10 @@ export default function Sorteos({ token }: { token: string }) {
             {error}
           </p>
         )}
+        {/* Contenido: se muestra cuando terminó de cargar sin errores */}
         {!cargando && !error && actual && reglas && (
           <>
+            {/* Premio actual, fechas y participantes */}
             <article className="sorteo-premio">
               <div>
                 <span className="eyebrow">PREMIO EN FORMACIÓN</span>
@@ -177,6 +187,7 @@ export default function Sorteos({ token }: { token: string }) {
                 <span>Un ganador por período · Premio simulado en pesos</span>
               </div>
             </article>
+            {/* Reloj de prueba para adelantar la fecha (solo en local) */}
             {resumen.relojPrueba.habilitado && (
               <section
                 className="sorteo-reloj ventas-tarjeta"
@@ -243,6 +254,7 @@ export default function Sorteos({ token }: { token: string }) {
                 )}
               </section>
             )}
+            {/* Tarjetas: tu monto, tu probabilidad y ventas de la plataforma */}
             <div className="ventas-metricas">
               <article className="ventas-tarjeta">
                 <span>Tu monto participante</span>
@@ -265,12 +277,14 @@ export default function Sorteos({ token }: { token: string }) {
                 <small>Cada venta aporta una sola vez al premio</small>
               </article>
             </div>
+            {/* Aviso si todavía no sumaste chances */}
             {actual.propia.peso === '0' && (
               <p className="sorteo-vacio">
                 Todavía no sumaste chances en este período. Tu primera compra o venta
                 entregada te hace participar, sin monto mínimo.
               </p>
             )}
+            {/* Reglas del sorteo y reparto de comisiones */}
             <article className="ventas-tarjeta sorteo-reglas">
               <h2>Cómo funciona</h2>
               <ol>
@@ -319,6 +333,7 @@ export default function Sorteos({ token }: { token: string }) {
                 </div>
               </dl>
             </article>
+            {/* Sorteos ya cerrados */}
             <section className="sorteo-historial" aria-label="Resultados anteriores">
               <h2>Resultados anteriores</h2>
               {resumen.historial.length === 0 ? (

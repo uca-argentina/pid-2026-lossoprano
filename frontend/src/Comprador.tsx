@@ -6,7 +6,7 @@
  * interfaz anticipa esos mensajes.
  */
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from 'react';
 import { api, imagenUrl, Negocio, Producto } from './api';
 import { formatCurrency, precioParaCantidad } from './utils';
 import { TablaPrecios } from './CampoPreciosEscalonados';
@@ -31,47 +31,25 @@ export default function PanelComprador({
     Pick<Negocio, 'idNegocio' | 'nombreComercial'>[]
   >([]);
   const [vendedor, setVendedor] = useState('');
-  const busquedaActual = useRef(0);
-  const [q, setQ] = useState('');
+  const [busqueda, setBusqueda] = useState('');
   const [categoria, setCategoria] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [detalle, setDetalle] = useState<Producto | null>(null);
+  // Número de la última búsqueda: sirve para ignorar respuestas viejas.
+  const busquedaActual = useRef(0);
   const { avisoCarrito, agregar } = estadoCarrito;
 
-  async function buscar(evento?: FormEvent) {
-    evento?.preventDefault();
-    const solicitudActual = ++busquedaActual.current;
-    setCargando(true);
-    setError('');
-    try {
-      const filtered = await api.buscarProductos(
-        {
-          q: q || undefined,
-          categoria: categoria || undefined,
-          idNegocio: vendedor ? Number(vendedor) : undefined,
-        },
-        token,
-      );
-      if (solicitudActual === busquedaActual.current) setProductos(filtered);
-    } catch (error) {
-      if (solicitudActual === busquedaActual.current)
-        setError(
-          error instanceof Error ? error.message : 'No se pudieron buscar productos.',
-        );
-    } finally {
-      if (solicitudActual === busquedaActual.current) setCargando(false);
-    }
-  }
-
+  // Busca de nuevo cada vez que cambia el texto o un filtro.
   useEffect(() => {
     buscar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     return () => {
       busquedaActual.current++;
     };
-  }, [q, categoria, vendedor, token]);
+  }, [busqueda, categoria, vendedor, token]);
 
+  // Cuando cambia el stock en otra pantalla, cierra el detalle y vuelve a buscar.
   useEffect(() => {
     const refrescar = () => {
       setDetalle(null);
@@ -79,8 +57,9 @@ export default function PanelComprador({
     };
     window.addEventListener('stock-actualizado', refrescar);
     return () => window.removeEventListener('stock-actualizado', refrescar);
-  }, [q, categoria, vendedor, token]);
+  }, [busqueda, categoria, vendedor, token]);
 
+  // Carga las listas de categorías y vendedores para los filtros.
   useEffect(() => {
     let activo = true;
     async function cargarFiltros() {
@@ -106,8 +85,43 @@ export default function PanelComprador({
     };
   }, [token]);
 
+  // Pide a la api los productos que coinciden con la búsqueda y los filtros.
+  async function buscar(evento?: FormEvent) {
+    evento?.preventDefault();
+    const solicitudActual = ++busquedaActual.current;
+    setCargando(true);
+    setError('');
+    try {
+      const encontrados = await api.buscarProductos(
+        {
+          q: busqueda || undefined,
+          categoria: categoria || undefined,
+          idNegocio: vendedor ? Number(vendedor) : undefined,
+        },
+        token,
+      );
+      if (solicitudActual === busquedaActual.current) setProductos(encontrados);
+    } catch (error) {
+      if (solicitudActual === busquedaActual.current)
+        setError(
+          error instanceof Error ? error.message : 'No se pudieron buscar productos.',
+        );
+    } finally {
+      if (solicitudActual === busquedaActual.current) setCargando(false);
+    }
+  }
+
+  // Agrega el producto al carrito; si sale bien, cierra el detalle y abre el carrito.
+  async function agregarAlCarrito(producto: Producto, cantidad: number) {
+    if (await agregar(producto, cantidad)) {
+      setDetalle(null);
+      abrirCarrito();
+    }
+  }
+
   return (
     <section className="explorar">
+      {/* Título de la sección */}
       <div className="explorar-header">
         <div>
           <h2>Explorar catálogo</h2>
@@ -117,12 +131,13 @@ export default function PanelComprador({
         </div>
       </div>
 
+      {/* Buscador con filtros de vendedor y categoría */}
       <form className="buscador" onSubmit={buscar}>
         <input
           aria-label="Buscar productos"
           placeholder="Buscar productos…"
-          value={q}
-          onChange={(evento) => setQ(evento.target.value)}
+          value={busqueda}
+          onChange={(evento) => setBusqueda(evento.target.value)}
         />
         <select
           aria-label="Filtrar por vendedor"
@@ -153,6 +168,7 @@ export default function PanelComprador({
         </button>
       </form>
 
+      {/* Avisos: error, carrito, buscando y sin resultados */}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -168,65 +184,62 @@ export default function PanelComprador({
         <p className="muted">No encontramos productos con esos criterios.</p>
       )}
 
+      {/* Grilla de productos; al hacer clic se abre el detalle */}
       <div className="producto-grilla">
-        {productos.map((producto) => (
-          <article
-            className="producto-card"
-            key={producto.idProducto}
-            onClick={() => setDetalle(producto)}
-          >
-            {producto.imagenes[0] && (
-              <img src={imagenUrl(producto.imagenes[0])} alt={producto.nombre} />
-            )}
-            <div className="producto-info">
-              <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
-              <b>{producto.nombre}</b>
-              <span className="muted">{producto.categoria.nombre}</span>
-              <div className="producto-precio">{formatCurrency(producto.precioBase)}</div>
-              {producto.preciosEscalonados.length > 0 && (
-                <small className="precio-mayorista">
-                  Desde{' '}
-                  {
-                    producto.preciosEscalonados[producto.preciosEscalonados.length - 1]
-                      .cantidadMinima
-                  }{' '}
-                  u:{' '}
-                  {formatCurrency(
-                    producto.preciosEscalonados[producto.preciosEscalonados.length - 1]
-                      .precioUnitario,
-                  )}{' '}
-                  c/u
-                </small>
+        {productos.map((producto) => {
+          const primeraImagen = producto.imagenes[0];
+          const ultimoTramo =
+            producto.preciosEscalonados[producto.preciosEscalonados.length - 1];
+          return (
+            <article
+              className="producto-card"
+              key={producto.idProducto}
+              onClick={() => setDetalle(producto)}
+            >
+              {primeraImagen && (
+                <img src={imagenUrl(primeraImagen)} alt={producto.nombre} />
               )}
-              <small>Stock: {producto.stock}</small>
-              {producto.cantidadMinimaCompra && (
-                <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>
-              )}
-              {Number(producto.negocio?.montoMinimoOrden) > 0 && (
-                <small>
-                  Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}
-                </small>
-              )}
-              {producto.stock < (producto.cantidadMinimaCompra ?? 1) && (
-                <small>No disponible para comprar</small>
-              )}
-            </div>
-          </article>
-        ))}
+              <div className="producto-info">
+                <span className="producto-marca">
+                  {producto.negocio?.nombreComercial}
+                </span>
+                <b>{producto.nombre}</b>
+                <span className="muted">{producto.categoria.nombre}</span>
+                <div className="producto-precio">
+                  {formatCurrency(producto.precioBase)}
+                </div>
+                {producto.preciosEscalonados.length > 0 && (
+                  <small className="precio-mayorista">
+                    Desde {ultimoTramo.cantidadMinima} u:{' '}
+                    {formatCurrency(ultimoTramo.precioUnitario)} c/u
+                  </small>
+                )}
+                <small>Stock: {producto.stock}</small>
+                {producto.cantidadMinimaCompra && (
+                  <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>
+                )}
+                {Number(producto.negocio?.montoMinimoOrden) > 0 && (
+                  <small>
+                    Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}
+                  </small>
+                )}
+                {producto.stock < (producto.cantidadMinimaCompra ?? 1) && (
+                  <small>No disponible para comprar</small>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
 
+      {/* Modal con el detalle del producto elegido */}
       {detalle && (
         <DetalleProducto
           producto={detalle}
           mensaje={avisoCarrito}
           esPropio={detalle.idNegocio === idNegocio}
           alCerrar={() => setDetalle(null)}
-          alAgregar={async (cantidad) => {
-            if (await agregar(detalle, cantidad)) {
-              setDetalle(null);
-              abrirCarrito();
-            }
-          }}
+          alAgregar={(cantidad) => agregarAlCarrito(detalle, cantidad)}
         />
       )}
     </section>
@@ -250,72 +263,94 @@ function DetalleProducto({
   alCerrar: () => void;
   alAgregar: (cantidad: number) => void | Promise<void>;
 }) {
+  // Va antes de los useState porque es el valor inicial de la cantidad.
   const minimo = producto.cantidadMinimaCompra ?? 1;
-  const disponible = producto.stock >= minimo;
   const [cantidad, setCantidad] = useState(minimo);
+  const [agregando, setAgregando] = useState(false);
+  const [indiceImagen, setIndiceImagen] = useState(0);
+  // Si alcanza el stock para el mínimo y el precio unitario según la cantidad elegida.
+  const disponible = producto.stock >= minimo;
   const precioUnitario = precioParaCantidad(
     producto.precioBase,
     producto.preciosEscalonados,
     cantidad,
   );
-  const [agregando, setAgregando] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const handlePrevImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === 0 ? producto.imagenes.length - 1 : prev - 1,
+  // Muestra la foto anterior (desde la primera vuelve a la última).
+  function imagenAnterior() {
+    setIndiceImagen((anterior) =>
+      anterior === 0 ? producto.imagenes.length - 1 : anterior - 1,
     );
-  };
+  }
 
-  const handleNextImage = () => {
-    setCurrentImageIndex((prev) =>
-      prev === producto.imagenes.length - 1 ? 0 : prev + 1,
+  // Muestra la foto siguiente (desde la última vuelve a la primera).
+  function imagenSiguiente() {
+    setIndiceImagen((anterior) =>
+      anterior === producto.imagenes.length - 1 ? 0 : anterior + 1,
     );
-  };
+  }
+
+  // Ajusta la cantidad escrita entre el mínimo y el stock.
+  function cambiarCantidad(evento: ChangeEvent<HTMLInputElement>) {
+    setCantidad(limitarCantidad(evento.target.valueAsNumber, producto.stock, minimo));
+  }
+
+  // Agrega al carrito y deshabilita el botón mientras tanto.
+  async function confirmarAgregar() {
+    setAgregando(true);
+    try {
+      await alAgregar(cantidad);
+    } finally {
+      setAgregando(false);
+    }
+  }
 
   return (
+    // Fondo oscuro: al hacer clic afuera se cierra el detalle
     <div className="overlay" onClick={alCerrar}>
       <div className="detalle-panel" onClick={(evento) => evento.stopPropagation()}>
+        {/* Botón para cerrar, fijo arriba */}
         <header className="detalle-encabezado">
           <button type="button" className="link detalle-cerrar" onClick={alCerrar}>
             Cerrar ✕
           </button>
         </header>
         <div className="detalle-contenido">
+          {/* Fotos: carrusel si hay más de una */}
           <div className="detalle-imagenes">
             {producto.imagenes.length > 1 ? (
               <>
                 <button
                   type="button"
                   className="carousel-nav prev"
-                  onClick={handlePrevImage}
+                  onClick={imagenAnterior}
                   disabled={producto.imagenes.length === 0}
                 >
                   ‹
                 </button>
                 <div className="carousel-slider">
                   <img
-                    key={`current-${currentImageIndex}`}
-                    src={imagenUrl(producto.imagenes[currentImageIndex])}
+                    key={`current-${indiceImagen}`}
+                    src={imagenUrl(producto.imagenes[indiceImagen])}
                     alt={producto.nombre}
                   />
                 </div>
                 <button
                   type="button"
                   className="carousel-nav next"
-                  onClick={handleNextImage}
+                  onClick={imagenSiguiente}
                   disabled={producto.imagenes.length === 0}
                 >
                   ›
                 </button>
                 {producto.imagenes.length > 2 && (
                   <div className="carousel-dots">
-                    {producto.imagenes.map((_, index) => (
+                    {producto.imagenes.map((_, indice) => (
                       <button
-                        key={index}
+                        key={indice}
                         type="button"
-                        className={currentImageIndex === index ? 'active' : ''}
-                        onClick={() => setCurrentImageIndex(index)}
+                        className={indiceImagen === indice ? 'active' : ''}
+                        onClick={() => setIndiceImagen(indice)}
                       />
                     ))}
                   </div>
@@ -325,6 +360,7 @@ function DetalleProducto({
               <img src={imagenUrl(producto.imagenes[0])} alt={producto.nombre} />
             )}
           </div>
+          {/* Datos del producto, precios y condiciones */}
           <div className="detalle-info">
             <span className="producto-marca">{producto.negocio?.nombreComercial}</span>
             <h2>{producto.nombre}</h2>
@@ -353,6 +389,7 @@ function DetalleProducto({
                 No hay stock suficiente para comprar la cantidad mínima.
               </p>
             )}
+            {/* Cantidad y botón para agregar al carrito */}
             <div className="detalle-agregar">
               <input
                 type="number"
@@ -361,28 +398,18 @@ function DetalleProducto({
                 max={producto.stock}
                 disabled={esPropio || !disponible}
                 value={cantidad}
-                onChange={(evento) =>
-                  setCantidad(
-                    limitarCantidad(evento.target.valueAsNumber, producto.stock, minimo),
-                  )
-                }
+                onChange={cambiarCantidad}
               />
               <button
                 type="button"
                 className="primary"
                 disabled={agregando || esPropio || !disponible}
-                onClick={async () => {
-                  setAgregando(true);
-                  try {
-                    await alAgregar(cantidad);
-                  } finally {
-                    setAgregando(false);
-                  }
-                }}
+                onClick={() => confirmarAgregar()}
               >
                 {agregando ? 'Agregando…' : 'Agregar al carrito'}
               </button>
             </div>
+            {/* Total estimado y avisos */}
             {disponible && !esPropio && (
               <p className="muted detalle-total">
                 {cantidad} u × {formatCurrency(precioUnitario)} ={' '}

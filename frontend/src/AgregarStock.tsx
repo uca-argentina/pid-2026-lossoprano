@@ -5,7 +5,7 @@
  * los carritos.
  */
 
-import { FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useState } from 'react';
 import { api, Producto } from './api';
 import ModalProducto from './ModalProducto';
 
@@ -23,10 +23,18 @@ export default function AgregarStock({
   const [cantidad, setCantidad] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState('');
+  // Cantidad escrita como número y si se puede guardar sin pasar el máximo permitido.
   const unidades = Number(cantidad);
   const valido =
     Number.isInteger(unidades) && unidades > 0 && unidades <= 2147483647 - producto.stock;
 
+  // Actualiza la cantidad escrita y borra el error anterior.
+  function cambiarCantidad(evento: ChangeEvent<HTMLInputElement>) {
+    setCantidad(evento.target.value);
+    setError('');
+  }
+
+  // Manda a la api las unidades a sumar y devuelve el producto actualizado.
   async function guardar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (ocupado || !valido) return;
@@ -49,10 +57,12 @@ export default function AgregarStock({
       alCerrar={alCerrar}
       compacto
     >
+      {/* Nombre del producto y stock actual */}
       <p className="stock-producto">{producto.nombre}</p>
       <p className="muted">
         Stock actual: <strong>{producto.stock} unidades</strong>
       </p>
+      {/* Formulario para cargar las unidades */}
       <form onSubmit={guardar}>
         <fieldset className="producto-campos" disabled={ocupado}>
           <label className="field">
@@ -65,13 +75,11 @@ export default function AgregarStock({
               required
               autoFocus
               value={cantidad}
-              onChange={(evento) => {
-                setCantidad(evento.target.value);
-                setError('');
-              }}
+              onChange={cambiarCantidad}
             />
             <small>Ingresá la cantidad que recibiste.</small>
           </label>
+          {/* Vista previa del stock final */}
           {valido && (
             <p className="stock-resumen" role="status">
               Stock después de agregar:{' '}
@@ -82,6 +90,7 @@ export default function AgregarStock({
             Se sumará al stock disponible al guardar. Los productos permanecerán en los
             carritos de los compradores.
           </p>
+          {/* Botones Cancelar y Agregar stock */}
           <div className="stock-acciones">
             <button type="button" className="link" onClick={alCerrar}>
               Cancelar
@@ -91,6 +100,7 @@ export default function AgregarStock({
             </button>
           </div>
         </fieldset>
+        {/* Error al guardar */}
         {error && (
           <p className="error" role="alert">
             {error}

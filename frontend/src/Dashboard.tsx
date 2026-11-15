@@ -10,6 +10,7 @@ import { api } from './api';
 import { resumirVentas } from './resumenVentas';
 import { formatCurrency } from './utils';
 
+// Convierte "2026-03" en "mar 2026" con la hora de Argentina.
 const nombreMes = (mes: string) =>
   new Date(`${mes}-15T12:00:00Z`).toLocaleDateString('es-AR', {
     month: 'short',
@@ -22,7 +23,13 @@ export default function Dashboard({ token }: { token: string }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [actualizacion, setActualizacion] = useState(0);
+  // Monto del mes más alto, para calcular el largo de cada barra (mínimo 1).
+  const maximoMensual = Math.max(
+    1,
+    ...(resumen?.meses.map((mes) => Number(mes.monto)) ?? []),
+  );
 
+  // Trae las ventas y arma el resumen; se repite al tocar "Actualizar ventas".
   useEffect(() => {
     let activo = true;
     setCargando(true);
@@ -46,13 +53,9 @@ export default function Dashboard({ token }: { token: string }) {
     };
   }, [token, actualizacion]);
 
-  const maximoMensual = Math.max(
-    1,
-    ...(resumen?.meses.map((mes) => Number(mes.monto)) ?? []),
-  );
-
   return (
     <>
+      {/* Encabezado de la pantalla */}
       <section className="welcome">
         <span className="eyebrow">DASHBOARD</span>
         <h1>Tus ventas en números</h1>
@@ -63,6 +66,7 @@ export default function Dashboard({ token }: { token: string }) {
         aria-label="Resumen de ventas"
         aria-busy={cargando}
       >
+        {/* Aclaración y botón para volver a cargar */}
         <div className="ventas-dashboard-encabezado">
           <p className="muted">
             Solo se incluyen subórdenes entregadas. Resumen y productos: todo el
@@ -77,6 +81,7 @@ export default function Dashboard({ token }: { token: string }) {
             Actualizar ventas
           </button>
         </div>
+        {/* Avisos de error y de carga */}
         {error && (
           <p className="error" role="alert">
             {error}
@@ -87,8 +92,10 @@ export default function Dashboard({ token }: { token: string }) {
             Cargando ventas…
           </p>
         )}
+        {/* Resumen: se muestra cuando terminó de cargar sin errores */}
         {resumen && !cargando && !error && (
           <>
+            {/* Tarjetas con cantidad, total y promedio */}
             <div className="ventas-metricas">
               <article className="ventas-tarjeta">
                 <span>Ventas entregadas</span>
@@ -106,6 +113,7 @@ export default function Dashboard({ token }: { token: string }) {
                 <small>Total vendido dividido por ventas</small>
               </article>
             </div>
+            {/* Aviso si todavía no hay ventas */}
             {resumen.ventas === 0 && (
               <p className="muted">
                 Todavía no tenés ventas entregadas. Cuando entregues un pedido, aparecerá
@@ -113,6 +121,7 @@ export default function Dashboard({ token }: { token: string }) {
               </p>
             )}
             <div className="ventas-detalles">
+              {/* Top 5 de productos más vendidos */}
               <article className="ventas-tarjeta">
                 <h2>Productos más pedidos</h2>
                 <p className="muted">
@@ -131,6 +140,7 @@ export default function Dashboard({ token }: { token: string }) {
                   </ol>
                 )}
               </article>
+              {/* Monto de cada mes con una barra proporcional */}
               <article className="ventas-tarjeta">
                 <h2>Evolución mensual</h2>
                 <p className="muted">

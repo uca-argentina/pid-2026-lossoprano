@@ -26,29 +26,48 @@ export default function CampoPreciosEscalonados({
       precioUnitario: tramo.precioUnitario,
     })),
   );
+  // Tramos convertidos a JSON para mandarlos en el campo oculto.
   const valor = JSON.stringify(
     filas.map((fila) => ({
       cantidadMinima: Number(fila.cantidadMinima),
       precioUnitario: Number(fila.precioUnitario),
     })),
   );
-  const cambiar = (
+
+  // Cambia la cantidad o el precio de un tramo.
+  function cambiar(
     clave: number,
     campo: 'cantidadMinima' | 'precioUnitario',
     texto: string,
-  ) =>
+  ) {
     setFilas((actual) =>
       actual.map((fila) => (fila.clave === clave ? { ...fila, [campo]: texto } : fila)),
     );
+  }
+
+  // Borra un tramo de la lista.
+  function quitarFila(clave: number) {
+    setFilas((actual) => actual.filter((item) => item.clave !== clave));
+  }
+
+  // Agrega un tramo vacío al final.
+  function agregarFila() {
+    setFilas((actual) => [
+      ...actual,
+      { clave: siguienteClave++, cantidadMinima: '', precioUnitario: '' },
+    ]);
+  }
 
   return (
     <fieldset className="precios-escalonados">
+      {/* Título y explicación de los precios por cantidad */}
       <legend>Precios por cantidad (opcional)</legend>
       <small>
         El precio unitario baja cuando el comprador llega a cada cantidad. Cada tramo debe
         tener un precio menor que el anterior.
       </small>
       <input type="hidden" name="preciosEscalonados" value={valor} />
+      {/* Una fila por tramo: cantidad desde, precio y botón para quitar */}
       {filas.map((fila, indice) => (
         <div className="tramo-fila" key={fila.clave}>
           <label>
@@ -85,25 +104,15 @@ export default function CampoPreciosEscalonados({
             type="button"
             className="link"
             aria-label={`Quitar tramo ${indice + 1}`}
-            onClick={() =>
-              setFilas((actual) => actual.filter((item) => item.clave !== fila.clave))
-            }
+            onClick={() => quitarFila(fila.clave)}
           >
             Quitar
           </button>
         </div>
       ))}
+      {/* Botón para sumar un tramo, hasta el máximo permitido */}
       {filas.length < MAXIMO_TRAMOS && (
-        <button
-          type="button"
-          className="link"
-          onClick={() =>
-            setFilas((actual) => [
-              ...actual,
-              { clave: siguienteClave++, cantidadMinima: '', precioUnitario: '' },
-            ])
-          }
-        >
+        <button type="button" className="link" onClick={() => agregarFila()}>
           + Agregar precio por cantidad
         </button>
       )}
@@ -122,9 +131,11 @@ export function TablaPrecios({
   minimo?: number;
 }) {
   if (!tramos.length) return null;
+  // Tramos de menor a mayor cantidad, con el precio base como primera fila.
   const ordenados = [...tramos].sort((a, b) => a.cantidadMinima - b.cantidadMinima);
   const filas = [{ cantidadMinima: minimo, precioUnitario: precioBase }, ...ordenados];
   return (
+    // Tabla con un rango de cantidades y su precio por fila
     <table className="tabla-precios">
       <caption>Precios por cantidad</caption>
       <thead>

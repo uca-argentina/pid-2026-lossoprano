@@ -7,7 +7,7 @@
  * identifica al comercio que compra o vende.
  */
 
-import { FormEvent, useEffect, useState, useRef } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState, useRef } from 'react';
 import { api, Negocio, Rol, Sesion } from './api';
 import Comprador from './Comprador';
 import CrearProducto from './CrearProducto';
@@ -18,6 +18,7 @@ import Dashboard from './Dashboard';
 import Sorteos from './Sorteos';
 
 type Vista = 'ingreso' | 'registro';
+// Datos vacíos del negocio para el formulario de registro.
 const negocioInicial = {
   razonSocial: '',
   nombreComercial: '',
@@ -25,6 +26,7 @@ const negocioInicial = {
   telefono: '',
   direccion: '',
 };
+// Nombre con el que se guarda la sesión en localStorage.
 const claveSesion = 'bulkmarket-sesion';
 
 /**
@@ -38,15 +40,19 @@ function App() {
   });
   const [vista, setVista] = useState<Vista>('ingreso');
 
-  const guardarSesion = (nuevaSesion: Sesion) => {
+  // Guarda la sesión en el navegador y en el estado.
+  function guardarSesion(nuevaSesion: Sesion) {
     localStorage.setItem(claveSesion, JSON.stringify(nuevaSesion));
     setSesion(nuevaSesion);
-  };
-  const cerrarSesion = () => {
+  }
+
+  // Borra la sesión del navegador y vuelve a la pantalla de ingreso.
+  function cerrarSesion() {
     localStorage.removeItem(claveSesion);
     setSesion(null);
-  };
+  }
 
+  // Con sesión iniciada se muestra el panel del negocio.
   if (sesion)
     return (
       <Panel sesion={sesion} guardarSesion={guardarSesion} cerrarSesion={cerrarSesion} />
@@ -54,6 +60,7 @@ function App() {
 
   return (
     <main className="auth-layout">
+      {/* Mensaje de bienvenida */}
       <section className="hero">
         <h1>
           Comprá mejor.
@@ -66,6 +73,7 @@ function App() {
       </section>
       <section className="auth-card">
         <Marca />
+        {/* Pestañas Ingresar / Crear cuenta */}
         <div className="tabs">
           <button
             className={vista === 'ingreso' ? 'active' : ''}
@@ -80,6 +88,7 @@ function App() {
             Crear cuenta
           </button>
         </div>
+        {/* Formulario de la pestaña elegida */}
         {vista === 'ingreso' ? (
           <Ingreso
             alIngresar={guardarSesion}
@@ -125,6 +134,7 @@ function Ingreso({
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
+  // Pide a la api iniciar sesión y entrega la sesión a App.
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setError('');
@@ -142,6 +152,7 @@ function Ingreso({
     <form onSubmit={enviar}>
       <h2>Bienvenido de nuevo</h2>
       <p className="muted">Ingresá para gestionar tu negocio.</p>
+      {/* Correo y contraseña */}
       <Campo
         etiqueta="Correo electrónico"
         tipo="email"
@@ -156,6 +167,7 @@ function Ingreso({
         alCambiar={setPassword}
         requerido
       />
+      {/* Error, botón de ingreso y enlace a registro */}
       <ErrorFormulario error={error} />
       <button className="primary" disabled={cargando}>
         {cargando ? 'Ingresando…' : 'Ingresar a mi cuenta'}
@@ -183,9 +195,11 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
+  // Devuelve una función que cambia un campo del negocio.
   const actualizarCampo = (campo: keyof typeof negocio) => (valor: string) =>
     setNegocio((actual) => ({ ...actual, [campo]: valor }));
 
+  // Revisa que las contraseñas coincidan y crea la cuenta en la api.
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setError('');
@@ -207,6 +221,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
     <form className={`registro ${rol.toLowerCase()}`} onSubmit={enviar}>
       <h2>Creá tu cuenta</h2>
       <p className="muted">Completá los datos de tu negocio para operar en BulkMarket.</p>
+      {/* Elegir si es comprador o vendedor */}
       <div className="role-selector">
         <button
           type="button"
@@ -225,6 +240,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
           <small>Marca o fabricante</small>
         </button>
       </div>
+      {/* Datos del negocio */}
       <div className="form-grid">
         <Campo
           etiqueta="Razón social"
@@ -277,6 +293,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
         </div>
       </div>
 
+      {/* Datos de la cuenta */}
       <Campo
         etiqueta="Correo electrónico"
         tipo="email"
@@ -299,6 +316,7 @@ function Registro({ alRegistrarse }: { alRegistrarse: (sesion: Sesion) => void }
         alCambiar={setConfirmacionPassword}
         requerido
       />
+      {/* Error y botón para crear la cuenta */}
       <ErrorFormulario error={error} />
       <button className="primary" disabled={cargando}>
         {cargando ? 'Creando cuenta…' : 'Crear cuenta gratis'}
@@ -334,17 +352,37 @@ function Panel({
     sesion.accessToken,
     sesion.negocio.idNegocio,
   );
-  const [carritoAbierto, setCarritoAbierto] = useState(false);
-  const unidadesCarrito =
-    estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
+  // Va antes de los useState porque decide la sección inicial.
   const esComprador = sesion.cliente.rol === 'COMPRADOR';
+  const [carritoAbierto, setCarritoAbierto] = useState(false);
   const [seccion, setSeccion] = useState<Seccion>(esComprador ? 'explorar' : 'perfil');
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [claveRecarga, setClaveRecarga] = useState(0);
+  const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
+    const { idNegocio, ...datos } = sesion.negocio;
+    return {
+      ...datos,
+      montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
+      diasReclamo: datos.diasReclamo ?? 7,
+      identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
+      telefono: soloDigitos(datos.telefono, 10),
+    };
+  });
+  const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [cargando, setCargando] = useState(false);
+  const [eliminando, setEliminando] = useState(false);
   const navegacionRef = useRef<HTMLDivElement>(null);
   const menuBotonRef = useRef<HTMLButtonElement>(null);
-  const lastClickRef = useRef(0);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const ultimoClicRef = useRef(0);
+  // Unidades totales en el carrito, para el número del botón.
+  const unidadesCarrito =
+    estadoCarrito.carrito?.items.reduce((total, item) => total + item.cantidad, 0) ?? 0;
+  // Texto y clase CSS según el rol.
+  const nombreRol = sesion.cliente.rol === 'COMPRADOR' ? 'Comprador' : 'Vendedor';
+  const claseRol = sesion.cliente.rol.toLowerCase();
 
+  // Con el menú móvil abierto: se cierra al tocar afuera, con Escape o al agrandar la pantalla.
   useEffect(() => {
     if (!menuAbierto) return;
     const cerrarAlSalir = (evento: PointerEvent) => {
@@ -374,41 +412,28 @@ function Panel({
    * Cambia de sección y cierra el menú móvil. Un doble clic sobre la sección actual
    * incrementa una clave para remontar su contenido.
    */
-  const handleTabClick = (targetSection: Seccion) => {
+  function cambiarSeccion(seccionElegida: Seccion) {
     setMenuAbierto(false);
     if (menuAbierto) menuBotonRef.current?.focus();
-    const now = Date.now();
-    const timeSinceLastClick = now - lastClickRef.current;
+    const ahora = Date.now();
+    const tiempoDesdeUltimoClic = ahora - ultimoClicRef.current;
 
     // Un segundo clic en la misma sección dentro de 300 ms se interpreta como recarga.
-    if (targetSection === seccion && timeSinceLastClick < 300) {
+    if (seccionElegida === seccion && tiempoDesdeUltimoClic < 300) {
       // Cambiar la clave remonta la pantalla y reinicia sus consultas.
-      setRefreshKey((prev) => prev + 1);
+      setClaveRecarga((anterior) => anterior + 1);
     } else {
-      setSeccion(targetSection);
+      setSeccion(seccionElegida);
     }
 
-    lastClickRef.current = now;
-  };
+    ultimoClicRef.current = ahora;
+  }
 
-  const [negocio, setNegocio] = useState<Omit<Negocio, 'idNegocio'>>(() => {
-    const { idNegocio, ...datos } = sesion.negocio;
-    return {
-      ...datos,
-      montoMinimoOrden: datos.montoMinimoOrden ?? '0.00',
-      diasReclamo: datos.diasReclamo ?? 7,
-      identificacionFiscal: soloDigitos(datos.identificacionFiscal, 11),
-      telefono: soloDigitos(datos.telefono, 10),
-    };
-  });
-  const [mensaje, setMensaje] = useState('');
-  const [error, setError] = useState('');
-  const [cargando, setCargando] = useState(false);
-  const [eliminando, setEliminando] = useState(false);
-
+  // Devuelve una función que cambia un campo del perfil del negocio.
   const actualizar = (campo: keyof typeof negocio) => (valor: string) =>
     setNegocio((actual) => ({ ...actual, [campo]: valor }));
 
+  // Guarda los cambios del perfil en la api y actualiza la sesión.
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     setCargando(true);
@@ -456,14 +481,13 @@ function Panel({
     }
   }
 
-  const nombreRol = sesion.cliente.rol === 'COMPRADOR' ? 'Comprador' : 'Vendedor';
-  const claseRol = sesion.cliente.rol.toLowerCase();
-
   return (
     <main className={`dashboard ${claseRol}`}>
+      {/* Barra superior: marca, menú, carrito y cerrar sesión */}
       <header className="navbar">
         <Marca />
         <div className="navbar-navigation" ref={navegacionRef}>
+          {/* Botón del menú en pantallas chicas */}
           <button
             type="button"
             className="navbar-menu-toggle"
@@ -488,6 +512,7 @@ function Panel({
             </svg>
             Menú
           </button>
+          {/* Pestañas de secciones (algunas solo para vendedores) */}
           <nav
             id="navegacion-principal"
             className={`navbar-tabs${menuAbierto ? ' abierto' : ''}`}
@@ -498,7 +523,7 @@ function Panel({
                 type="button"
                 className={`nav-tab ${seccion === 'dashboard' ? 'active' : ''}`}
                 aria-current={seccion === 'dashboard' ? 'page' : undefined}
-                onClick={() => handleTabClick('dashboard')}
+                onClick={() => cambiarSeccion('dashboard')}
               >
                 Dashboard
               </button>
@@ -507,7 +532,7 @@ function Panel({
               type="button"
               className={`nav-tab ${seccion === 'perfil' ? 'active' : ''}`}
               aria-current={seccion === 'perfil' ? 'page' : undefined}
-              onClick={() => handleTabClick('perfil')}
+              onClick={() => cambiarSeccion('perfil')}
             >
               Perfil
             </button>
@@ -516,7 +541,7 @@ function Panel({
                 type="button"
                 className={`nav-tab ${seccion === 'productos' ? 'active' : ''}`}
                 aria-current={seccion === 'productos' ? 'page' : undefined}
-                onClick={() => handleTabClick('productos')}
+                onClick={() => cambiarSeccion('productos')}
               >
                 Mis Productos
               </button>
@@ -525,7 +550,7 @@ function Panel({
               type="button"
               className={`nav-tab ${seccion === 'compras' ? 'active' : ''}`}
               aria-current={seccion === 'compras' ? 'page' : undefined}
-              onClick={() => handleTabClick('compras')}
+              onClick={() => cambiarSeccion('compras')}
             >
               Mis Compras
             </button>
@@ -534,7 +559,7 @@ function Panel({
                 type="button"
                 className={`nav-tab ${seccion === 'pedidos' ? 'active' : ''}`}
                 aria-current={seccion === 'pedidos' ? 'page' : undefined}
-                onClick={() => handleTabClick('pedidos')}
+                onClick={() => cambiarSeccion('pedidos')}
               >
                 Pedidos
               </button>
@@ -543,7 +568,7 @@ function Panel({
               type="button"
               className={`nav-tab ${seccion === 'explorar' ? 'active' : ''}`}
               aria-current={seccion === 'explorar' ? 'page' : undefined}
-              onClick={() => handleTabClick('explorar')}
+              onClick={() => cambiarSeccion('explorar')}
             >
               Explorar
             </button>
@@ -551,12 +576,13 @@ function Panel({
               type="button"
               className={`nav-tab ${seccion === 'sorteos' ? 'active' : ''}`}
               aria-current={seccion === 'sorteos' ? 'page' : undefined}
-              onClick={() => handleTabClick('sorteos')}
+              onClick={() => cambiarSeccion('sorteos')}
             >
               Sorteos
             </button>
           </nav>
         </div>
+        {/* Rol, botón del carrito y cerrar sesión */}
         <div className="navbar-actions">
           <span className={`role-badge ${claseRol}`}>{nombreRol}</span>
           <button
@@ -614,16 +640,17 @@ function Panel({
           </button>
         </div>
       </header>
+      {/* Contenido de la sección elegida; la key permite recargarla con doble clic */}
       {seccion === 'sorteos' && (
-        <Sorteos key={`sorteos-${refreshKey}`} token={sesion.accessToken} />
+        <Sorteos key={`sorteos-${claveRecarga}`} token={sesion.accessToken} />
       )}
       {!esComprador && seccion === 'dashboard' && (
-        <div key={`dashboard-${refreshKey}`}>
+        <div key={`dashboard-${claveRecarga}`}>
           <Dashboard token={sesion.accessToken} />
         </div>
       )}
       {seccion === 'explorar' && (
-        <div key={`explorar-${refreshKey}`}>
+        <div key={`explorar-${claveRecarga}`}>
           <Comprador
             token={sesion.accessToken}
             idNegocio={sesion.negocio.idNegocio}
@@ -632,8 +659,9 @@ function Panel({
           />
         </div>
       )}
+      {/* Perfil: formulario con los datos del negocio y zona para eliminarlo */}
       {seccion === 'perfil' && (
-        <div key={`perfil-${refreshKey}`}>
+        <div key={`perfil-${claveRecarga}`}>
           <>
             <section className="welcome">
               <span className="eyebrow">PERFIL DE {nombreRol.toUpperCase()}</span>
@@ -707,6 +735,7 @@ function Panel({
                     />
                   </div>
                 </div>
+                {/* Solo vendedores: monto mínimo y plazo de reclamos */}
                 {!esComprador && (
                   <label className="field">
                     <span>Monto mínimo por pedido</span>
@@ -746,12 +775,14 @@ function Panel({
                     </small>
                   </label>
                 )}
+                {/* Error, aviso de guardado y botón Guardar */}
                 <ErrorFormulario error={error} />
                 {mensaje && <p className="success">✓ {mensaje}</p>}
                 <button className="primary" disabled={cargando || eliminando}>
                   {cargando ? 'Guardando…' : 'Guardar cambios'}
                 </button>
               </form>
+              {/* Zona para eliminar el negocio */}
               <section className="danger-zone" aria-labelledby="delete-business-title">
                 <div>
                   <h2 id="delete-business-title">Eliminar negocio</h2>
@@ -774,7 +805,7 @@ function Panel({
         </div>
       )}
       {seccion === 'productos' && (
-        <div key={`productos-${refreshKey}`}>
+        <div key={`productos-${claveRecarga}`}>
           <>
             <section className="welcome">
               <span className="eyebrow">MIS PRODUCTOS</span>
@@ -788,15 +819,16 @@ function Panel({
         </div>
       )}
       {seccion === 'compras' && (
-        <div key={`compras-${refreshKey}`}>
+        <div key={`compras-${claveRecarga}`}>
           <Pedidos token={sesion.accessToken} tipo="compras" />
         </div>
       )}
       {!esComprador && seccion === 'pedidos' && (
-        <div key={`pedidos-${refreshKey}`}>
+        <div key={`pedidos-${claveRecarga}`}>
           <Pedidos token={sesion.accessToken} tipo="ventas" />
         </div>
       )}
+      {/* Panel lateral del carrito */}
       {carritoAbierto && (
         <PanelCarrito
           estado={estadoCarrito}
@@ -808,21 +840,28 @@ function Panel({
   );
 }
 
+// Deja solo los números y corta en el máximo indicado.
 function soloDigitos(valor: string, maximoDigitos: number) {
   return valor.replace(/\D/g, '').slice(0, maximoDigitos);
 }
+
+// Escribe el CUIT como XX-XXXXXXXX-X a medida que se tipea.
 function formatearCuit(valor: string) {
   const digitos = soloDigitos(valor, 11);
   if (digitos.length <= 2) return digitos;
   if (digitos.length <= 10) return `${digitos.slice(0, 2)}-${digitos.slice(2)}`;
   return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`;
 }
+
+// Escribe el teléfono como XX XXXX-XXXX a medida que se tipea.
 function formatearTelefono(valor: string) {
   const digitos = soloDigitos(valor, 10);
   if (digitos.length <= 2) return digitos;
   if (digitos.length <= 6) return `${digitos.slice(0, 2)} ${digitos.slice(2)}`;
   return `${digitos.slice(0, 2)} ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
 }
+
+// Campo de texto con etiqueta; puede aceptar solo números y darles formato.
 function Campo({
   etiqueta,
   valor,
@@ -854,28 +893,33 @@ function Campo({
   minDigitos?: number;
   exactDigitos?: number;
 }) {
+  // Valor con formato para mostrar y patrón de validación sin barras dobles.
   const valorVisible = formatear ? formatear(valor) : valor;
   const patron = props.pattern?.split('\\\\').join('\\');
+
+  // Si el campo es numérico, saca lo que no sea número y respeta el máximo de dígitos.
+  function cambiarValor(evento: ChangeEvent<HTMLInputElement>) {
+    const texto = evento.target.value;
+    if (soloNumeros) {
+      const digitos = texto.replace(/\D/g, '');
+      let maximo = maximoDigitos ?? Number.MAX_SAFE_INTEGER;
+      if (exactDigitos !== undefined) {
+        maximo = exactDigitos;
+      }
+      const recortado = digitos.slice(0, maximo);
+      alCambiar(soloDigitos(recortado, maximo));
+    } else {
+      alCambiar(texto);
+    }
+  }
+
   return (
     <label className="field">
       <span>{etiqueta}</span>
       <input
         type={tipo}
         value={valorVisible}
-        onChange={(evento) => {
-          let input = evento.target.value;
-          if (soloNumeros) {
-            const digitsOnly = input.replace(/\D/g, '');
-            let max = maximoDigitos ?? Number.MAX_SAFE_INTEGER;
-            if (exactDigitos !== undefined) {
-              max = exactDigitos;
-            }
-            const limited = digitsOnly.slice(0, max);
-            alCambiar(soloDigitos(limited, max));
-          } else {
-            alCambiar(input);
-          }
-        }}
+        onChange={cambiarValor}
         {...props}
         required={requerido}
         pattern={patron}
@@ -884,6 +928,8 @@ function Campo({
     </label>
   );
 }
+
+// Muestra el error del formulario, si hay.
 function ErrorFormulario({ error }: { error: string }) {
   return error ? (
     <p className="error" role="alert">
@@ -891,4 +937,5 @@ function ErrorFormulario({ error }: { error: string }) {
     </p>
   ) : null;
 }
+
 export default App;
