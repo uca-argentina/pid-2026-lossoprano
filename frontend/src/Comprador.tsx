@@ -188,8 +188,10 @@ export default function PanelComprador({
       <div className="producto-grilla">
         {productos.map((producto) => {
           const primeraImagen = producto.imagenes[0];
-          const ultimoTramo =
-            producto.preciosEscalonados[producto.preciosEscalonados.length - 1];
+          const tramos = producto.preciosEscalonados;
+          const ultimoTramo = tramos[tramos.length - 1];
+          const negocio = producto.negocio;
+          const montoMinimo = Number(negocio?.montoMinimoOrden);
           return (
             <article
               className="producto-card"
@@ -201,14 +203,14 @@ export default function PanelComprador({
               )}
               <div className="producto-info">
                 <span className="producto-marca">
-                  {producto.negocio?.nombreComercial}
+                  {negocio?.nombreComercial}
                 </span>
                 <b>{producto.nombre}</b>
                 <span className="muted">{producto.categoria.nombre}</span>
                 <div className="producto-precio">
                   {formatCurrency(producto.precioBase)}
                 </div>
-                {producto.preciosEscalonados.length > 0 && (
+                {tramos.length > 0 && (
                   <small className="precio-mayorista">
                     Desde {ultimoTramo.cantidadMinima} u:{' '}
                     {formatCurrency(ultimoTramo.precioUnitario)} c/u
@@ -218,9 +220,9 @@ export default function PanelComprador({
                 {producto.cantidadMinimaCompra && (
                   <small>Mínimo: {producto.cantidadMinimaCompra} unidades</small>
                 )}
-                {Number(producto.negocio?.montoMinimoOrden) > 0 && (
+                {montoMinimo > 0 && (
                   <small>
-                    Pedido mínimo: {formatCurrency(producto.negocio!.montoMinimoOrden!)}
+                    Pedido mínimo: {formatCurrency(negocio!.montoMinimoOrden!)}
                   </small>
                 )}
                 {producto.stock < (producto.cantidadMinimaCompra ?? 1) && (
