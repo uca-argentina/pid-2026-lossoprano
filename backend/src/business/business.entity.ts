@@ -39,6 +39,7 @@ export class Negocio {
 
   @Column({ name: 'pagina_web', type: 'varchar', length: 200, nullable: true })
   paginaWeb: string | null;
+  // AYUDA: campo nuevo del vendedor → copiar diasReclamo en: entity (con default) · update-business.dto · input en App.tsx · tipo Negocio en api.ts · lista de 'enviar' en App.tsx.
   @Column({ name: 'dias_reclamo', default: 7 })
   diasReclamo: number;
   @OneToMany(() => Cliente, (cliente) => cliente.negocio)

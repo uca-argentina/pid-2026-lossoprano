@@ -261,6 +261,7 @@ async function subirImagenes(datos: FormData, token: string): Promise<FormData> 
   return formulario;
 }
 
+// AYUDA: URL de cada función = ruta del controller (sin /api, mismo singular/plural). solicitud<T>: T = lo que devuelve el back.
 export const api = {
   actualizarSorteos: (token: string) =>
     solicitud<ResumenSorteos>('/sorteos/actualizar', { method: 'POST' }, token),

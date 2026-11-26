@@ -225,6 +225,7 @@ function TarjetaReclamo({
   const claseEstado = reclamo.estado.toLowerCase();
 
   // Corre una acción de la api, muestra el error si falla y siempre recarga los pedidos.
+  // AYUDA: acción nueva sobre un reclamo: function x() { void ejecutar(() => api.algo(reclamo.idReclamo, token)); } (ya maneja error y recarga).
   async function ejecutar(accion: () => Promise<unknown>, alTerminar?: () => void) {
     setEnCurso(true);
     setError('');

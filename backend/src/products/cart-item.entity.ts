@@ -16,6 +16,8 @@ import {
 import { Cliente } from '../users/user.entity';
 import { Producto } from './products.entity';
 
+// AYUDA: MOLDE de tabla nueva 'cuenta + producto' (favoritos, lista de espera): dos @PrimaryColumn + @ManyToOne/@JoinColumn con el MISMO name.
+// string | null → @Column({ type: 'varchar', nullable: true }). Después: registrarla en products.module.
 @Entity('carrito_item')
 @Check('"cantidad" > 0')
 export class CarritoItem {

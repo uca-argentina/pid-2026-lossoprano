@@ -26,6 +26,7 @@ import { GuardarCarritoDto } from './guardar-carrito.dto';
 import { CondicionPago, EstadoSuborden } from '../order.entity';
 
 // Entrega y pago de la suborden de un vendedor.
+// AYUDA: lo que el comprador elige POR VENDEDOR en el checkout se declara en ESTA clase (llega como entrega.campo). Ej: @IsOptional() @IsInt() urgente?: number;
 export class EntregaSubordenDto {
   @IsInt()
   @Min(1)
@@ -55,6 +56,7 @@ export class ConfirmarPedidoDto extends GuardarCarritoDto {
   total: string;
 }
 
+// AYUDA: dato obligatorio solo para un estado: @ValidateIf((dto) => dto.estado === EstadoSuborden.ENVIADA) + validaciones (@IsString, @MinLength, @Matches(/^[A-Za-z0-9]+$/)).
 export class CambiarEstadoDto {
   @IsEnum(EstadoSuborden)
   estado: EstadoSuborden;

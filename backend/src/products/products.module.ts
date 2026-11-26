@@ -22,6 +22,7 @@ import { ImagenesService } from './images.service';
 
 @Module({
   imports: [
+    // AYUDA: toda TABLA NUEVA se agrega a esta lista (y se importa arriba). Si falta → 500 'No metadata'.
     TypeOrmModule.forFeature([
       Producto,
       CarritoItem,

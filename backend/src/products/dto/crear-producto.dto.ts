@@ -55,6 +55,7 @@ export class CrearProductoDto {
   @Min(1)
   @Max(2147483647)
   cantidadMinimaCompra: number | null = null;
+  // AYUDA: campo nuevo de producto → copiar este (con @Transform: por FormData llega como texto). El name del input en NuevoProducto/EditarProducto tiene que ser IGUAL.
   @IsString()
   @IsNotEmpty()
   @MaxLength(150)

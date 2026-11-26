@@ -36,6 +36,7 @@ import { BLOQUEO_SORTEOS } from '../sweepstakes/sweepstakes.rules';
 import { ahoraSorteos } from '../sweepstakes/sweepstakes-clock';
 
 const centavos = (valor: string) => BigInt(valor.replace('.', ''));
+// AYUDA: centavos('12.50') → 1250n · importe(1250n) → '12.50'. Plata siempre en centavos (BigInt).
 const importe = (valor: bigint) =>
   `${valor / 100n}.${(valor % 100n).toString().padStart(2, '0')}`;
 const UN_DIA = 24 * 60 * 60 * 1000;
@@ -91,6 +92,8 @@ export class PedidosService {
       }
       // Una suborden por vendedor: cada una junta sus líneas y su propio total.
       const grupos = new Map<number, { items: LineaPedido[]; total: bigint }>();
+      // AYUDA (confirmar · PASO 3): un for por PRODUCTO del carrito. Reglas por producto van adentro, junto a los if de stock/mínimo.
+      // Límite opcional: if (producto.campo && fila.cantidad > producto.campo) throw new ConflictException(`...${producto.nombre}...`);
       for (const fila of filas) {
         const producto = await manager.getRepository(Producto).findOne({
           where: { idProducto: fila.idProducto },
@@ -155,7 +158,13 @@ export class PedidosService {
           throw new ConflictException(
             `No se alcanza el monto mínimo de ${vendedor?.nombreComercial ?? 'un vendedor'}.`,
           );
+        // AYUDA (confirmar · PASO 4): reglas POR VENDEDOR acá, DEBAJO del if del mínimo (el mínimo se calcula sin recargos).
+        // vendedor.x = lo que configuró el vendedor (base) · entrega.x = lo que eligió el comprador (declararlo en EntregaSubordenDto).
+        // Contar en la base: await manager.getRepository(Suborden).count({ where: { idNegocioComprador: cliente.idNegocio, idNegocioVendedor: vendedor.idNegocio, estado: EstadoSuborden.ENTREGADA } })
+        // No tocar 'total +=': si cambia, el front tiene que mandar lo mismo (si no, 409 'El importe cambió').
         total += grupo.total;
+        // AYUDA: recargo/descuento SOLO en el push: total: importe(grupo.total + recargo), con recargo = BigInt(x) * 100n.
+        // Dato nuevo de la suborden: agregarlo acá (campo: valor) + columna en Suborden (order.entity.ts) con default o nullable.
         subordenes.push({
           idNegocioVendedor: vendedor.idNegocio,
           nombreVendedor: vendedor.nombreComercial,
@@ -283,6 +292,9 @@ export class PedidosService {
           `No podés pasar este pedido de ${suborden.estado.toLowerCase()} a ${estado.toLowerCase()}.`,
         );
       }
+      // AYUDA (cambiarEstado): reglas nuevas al cambiar de estado van acá. parte = 'vendedor' | 'comprador'.
+      // Ej: if (parte === 'comprador' && estado === EstadoSuborden.CANCELADA && Date.now() - suborden.creadoEn.getTime() > 60 * 60 * 1000) throw new ConflictException('...');
+      // Guardar un dato: if (estado === EstadoSuborden.ENVIADA) suborden.campo = valor ?? null;  (antes del save)
       if (estado === EstadoSuborden.RECHAZADA || estado === EstadoSuborden.CANCELADA) {
         // Devuelve el stock descontado al confirmar. Los productos eliminados se ignoran.
         for (const item of [...suborden.items].sort(

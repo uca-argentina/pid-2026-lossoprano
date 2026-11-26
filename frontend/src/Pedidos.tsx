@@ -89,6 +89,7 @@ export default function Pedidos({
     setEnCurso(suborden.idSuborden);
     setError('');
     try {
+      // AYUDA: pedir un texto al cambiar estado: const x = estado === 'ENVIADA' ? window.prompt('...') ?? '' : '';  → pasarlo como parámetro extra (api.ts + body).
       await api.cambiarEstadoSuborden(suborden.idSuborden, estado, token);
       if (devuelveStock) window.dispatchEvent(new Event('stock-actualizado'));
     } catch (e) {
@@ -108,6 +109,7 @@ export default function Pedidos({
   }
 
   // Arma los botones de cambio de estado que corresponden a la suborden.
+  // AYUDA: los botones de estado salen de ACCIONES_VENDEDOR / ACCIONES_COMPRADOR (utils.ts). Botón propio en la tarjeta: hijo de <TarjetaSuborden>.
   function acciones(suborden: Suborden, disponibles: typeof ACCIONES_VENDEDOR) {
     return disponibles[suborden.estado]?.map((accion) => (
       <button

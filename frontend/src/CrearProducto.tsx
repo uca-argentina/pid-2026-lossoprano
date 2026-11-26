@@ -52,6 +52,7 @@ export default function CrearProducto({ token }: { token: string }) {
   }, [token]);
 
   // Reemplaza en la lista el producto que cambió, manteniendo los demás.
+  // AYUDA: después de cambiar un producto en el back: const r = await api.algo(...); actualizarProducto(r);  (refresca la lista)
   function actualizarProducto(producto: Producto) {
     setMisProductos((actual) =>
       actual.map((item) => (item.idProducto === producto.idProducto ? producto : item)),

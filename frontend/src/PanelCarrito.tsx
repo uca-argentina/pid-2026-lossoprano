@@ -54,6 +54,8 @@ export default function PanelCarrito({
   }, [alCerrar]);
 
   // Devuelve la dirección y el pago elegidos para un vendedor.
+  // AYUDA: entrega(id) LEE lo elegido para un vendedor · cambiarEntrega(id, { campo: valor }) lo ESCRIBE (botón/input del checkout).
+  // Dato nuevo por vendedor: 1) type Entrega + entregaInicial 2) cambiarEntrega en el botón 3) campo: entrega(idNegocio).campo en confirmar 4) EntregaSubordenDto.
   function entrega(idNegocio: number) {
     return entregas[idNegocio] ?? entregaInicial;
   }
@@ -96,6 +98,7 @@ export default function PanelCarrito({
         idNegocio,
         direccionEntrega: entrega(idNegocio).direccion.trim(),
         condicionPago: entrega(idNegocio).pago,
+        // AYUDA: dato nuevo por vendedor → agregarlo acá (campo: entrega(idNegocio).campo). Si no está acá, NO llega al back.
       })),
       items: carrito.items.map(({ idProducto, version, cantidad }) => ({
         idProducto,
@@ -104,6 +107,7 @@ export default function PanelCarrito({
       })),
     };
     try {
+      // AYUDA: acá sale al back: estado.confirmar (useCarrito.ts) → api.confirmarPedido → POST /pedidos → orders.service.confirmar
       setPedido(await estado.confirmar(intento.current));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo confirmar el pedido.');

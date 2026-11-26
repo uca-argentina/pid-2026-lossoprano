@@ -440,6 +440,7 @@ function Panel({
     setError('');
     try {
       // Mínimo y plazo de reclamos son datos del vendedor: un comprador no los envía.
+      // AYUDA: campos nuevos del vendedor → sumarlos a esta lista (el comprador no los manda; si los manda → 403).
       const { montoMinimoOrden, diasReclamo, ...datos } = negocio;
       const actualizado = await api.actualizarNegocio(
         esComprador ? datos : negocio,

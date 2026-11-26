@@ -109,6 +109,7 @@ export class ProductosService {
    * Arma una consulta paginada con filtros opcionales y excluye el negocio actual. Los
    * parámetros evitan concatenar valores del usuario como SQL.
    */
+  // AYUDA (catálogo del comprador): filtro extra → .andWhere('producto.campo = :campo', { campo: valor }) · orden → .orderBy('producto.campo', 'DESC')
   async buscar(filtros: BuscarProductosDto, idNegocioActual: number) {
     const consulta = this.productos
       .createQueryBuilder('producto')
@@ -230,6 +231,7 @@ export class ProductosService {
    * Suma unidades al stock bloqueado y controla el límite entero de PostgreSQL; no
    * cambia la versión comercial del producto.
    */
+  // AYUDA: MOLDE para 'botón del vendedor que cambia UNA cosa de un producto' (destacar, pausar): ruta @Patch(':id/algo') + findOne({ where: { idProducto, idNegocio } }) + save + return.
   async agregarStock(idProducto: number, idNegocio: number, cantidad: number) {
     return this.productos.manager.transaction(async (manager) => {
       const repo = manager.getRepository(Producto);

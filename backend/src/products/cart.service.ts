@@ -68,6 +68,7 @@ export class CarritoService {
           idNegocio: negocio.idNegocio,
           nombreNegocio: negocio.nombreComercial,
           subtotal: (centavos / 100).toFixed(2),
+          // AYUDA: para mostrar un dato del vendedor en el carrito/checkout: agregarlo acá + en el tipo del vendedor del carrito en api.ts.
           montoMinimoOrden: negocio.montoMinimoOrden,
           faltanteMinimo: (faltanteCentavos / 100).toFixed(2),
           cumpleMinimos: faltanteCentavos === 0 && cantidadesValidas,
