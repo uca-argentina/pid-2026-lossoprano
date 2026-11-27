@@ -6,9 +6,11 @@
  * se vuelven a controlar en la API.
  */
 
-import { ReactNode, useEffect, useState } from 'react';
-import { api, EstadoSuborden, Pedido, Suborden } from './api';
+import { ReactNode, useEffect, useState, useRef } from 'react';
+import { api, EstadoSuborden, Pedido, Suborden, Carrito, ItemCarrito, Producto } from './api';
+import {  } from './useCarrito';
 import Reclamos from './Reclamos';
+import agregarAlCarrito from './Comprador';
 import {
   ACCIONES_COMPRADOR,
   ACCIONES_VENDEDOR,
@@ -38,6 +40,27 @@ export default function Pedidos({
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [enCurso, setEnCurso] = useState<number | null>(null);
+  const [carrito, setCarrito] = useState<Carrito>(null);
+    const [avisoCarrito, setAviso] = useState('');
+    const [listo, setListo] = useState(false);
+    const [procesando, setProcesando] = useState(false);
+
+
+    const actual = useRef<Carrito>(null);
+      const ocupado = useRef(false);
+      const revision = useRef(0);
+      const activo = useRef(false);
+    // Las referencias permiten leer el último valor desde callbacks sin depender del render
+    // que los creó. ocupado coordina escrituras; revision identifica respuestas de consultas viejas.
+    function mostrar(valor: Carrito) {
+    actual.current = valor;
+    if (activo.current) setCarrito(valor);
+  }
+   useEffect(() => {
+    activo.current = true;
+    let cancelado = false;
+    let cargando = false;
+    let falloCarga = false;})
   // Compras de la pestaña elegida: en curso o completadas.
   const comprasVisibles = compras.filter((pedido) =>
     vista === 'historial' ? pedido.estado === 'COMPLETADA' : pedido.estado === 'EN_CURSO',
@@ -135,6 +158,64 @@ export default function Pedidos({
       (suborden.reclamos ?? []).some(reclamoAbierto)
     );
   }
+  function limitarCantidad(cantidad: number, stock: number, minimo = 1) {
+  if (!Number.isInteger(stock) || stock < minimo) return 0;
+  return Math.max(
+    minimo,
+    Math.min(stock, Number.isFinite(cantidad) ? Math.trunc(cantidad) : minimo),
+  );
+}
+
+async function guardar(
+    items: Pick<ItemCarrito, 'idProducto' | 'version' | 'cantidad'>[],
+  ) {
+    
+   
+    
+      mostrar(await api.guardarCarrito(items, token));
+      
+  }
+async function agregar(producto: Producto, cantidad: number, idNegocio) {
+    if (producto.idNegocio === idNegocio) {
+      setAviso('No podés comprar productos de tu propio negocio.');
+      return false;
+    }
+    const unidades = limitarCantidad(
+      cantidad,
+      producto.stock,
+      producto.cantidadMinimaCompra ?? 1,
+    );
+    if (!unidades) return false;
+    // El carrito admite varios vendedores: se suma al resto sin vaciarlo.
+    const items = actual.current?.items ?? [];
+    const existente = items.find((item) => item.idProducto === producto.idProducto);
+    const nuevo = {
+      idProducto: producto.idProducto,
+      version: producto.version,
+      cantidad: limitarCantidad(
+        (existente?.version === producto.version ? existente.cantidad : 0) + unidades,
+        producto.stock,
+        producto.cantidadMinimaCompra ?? 1,
+      ),
+    };
+    return guardar([
+      ...items.filter((item) => item.idProducto !== producto.idProducto),
+      nuevo,
+    ]);
+  }
+  async function repetirPedido(pedido:Pedido){
+    
+    const subordenes = pedido.subordenes;
+    const item = subordenes[0];
+    const producto = api.obtenerProducto(item.items[0].idProducto,token);
+    agregar(producto, token,true);
+    subordenes.map((p)=> api.obtenerProducto(p.items.map((q)=> q.idProducto),token))
+    //const items = subordenes.map((p)=>p.map((q)=>agregar(api.obtenerProducto(q.idProducto,token, q.cantidad, q.idNegocio))); 
+    // pedido.subordenes.items.map((p)=>agregar(api.obtenerProducto(p.idProducto,token, true));
+
+
+
+  }
 
   return (
     <>
@@ -227,6 +308,7 @@ export default function Pedidos({
                   <span className={`estado-pedido ${pedido.estado.toLowerCase()}`}>
                     {ESTADOS_PEDIDO[pedido.estado]}
                   </span>
+                  
                 </header>
                 <p className="muted">
                   {fecha(pedido.creadoEn)} · Total {formatCurrency(pedido.total)}
@@ -237,6 +319,8 @@ export default function Pedidos({
                     : 'La orden se completará cuando todas sus subórdenes estén entregadas o cerradas.'}{' '}
                   Las rechazadas o canceladas se consideran cerradas.
                 </p>
+                <button type="button" className="link" onClick={repetirPedido(pedido.subordenes)}>REPETIR PEDIDO</button>
+                
                 {pedido.subordenes.map((suborden) => (
                   <TarjetaSuborden
                     key={suborden.idSuborden}
@@ -245,6 +329,7 @@ export default function Pedidos({
                     detalle={`Orden #${suborden.idSuborden}`}
                     acciones={acciones(suborden, ACCIONES_COMPRADOR)}
                   >
+                    
                     <Reclamos
                       suborden={suborden}
                       rol="comprador"

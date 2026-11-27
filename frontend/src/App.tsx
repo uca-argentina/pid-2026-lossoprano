@@ -333,6 +333,7 @@ type Seccion =
   | 'pedidos'
   | 'dashboard'
   | 'sorteos';
+  
 
 /**
  * Coordina secciones y menú adaptable según el rol. Mantiene un solo hook de carrito
